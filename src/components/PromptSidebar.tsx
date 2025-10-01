@@ -54,7 +54,7 @@ const PromptSidebar = ({
   );
 
   return (
-    <div className="flex h-full flex-col border-r border-border/50 bg-background/60 backdrop-blur">
+    <div className="flex h-full flex-col border-b border-border/50 bg-background/60 backdrop-blur lg:border-b-0 lg:border-r">
       <div className="border-b border-border/40 px-5 py-4">
         <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
           <Sparkles className="h-4 w-4" />

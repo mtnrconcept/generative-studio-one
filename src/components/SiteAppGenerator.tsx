@@ -288,7 +288,7 @@ const SiteAppGenerator = ({ mode }: SiteAppGeneratorProps) => {
 
   return (
     <div className="flex h-full w-full bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
-      <div className="grid h-full w-full grid-cols-[minmax(280px,340px)_minmax(280px,360px)_1fr] bg-background/60">
+      <div className="grid h-full w-full grid-cols-1 bg-background/60 max-lg:gap-6 max-lg:overflow-y-auto lg:grid-cols-[minmax(260px,320px)_minmax(260px,360px)_1fr] lg:overflow-hidden">
         <PromptSidebar
           prompt={prompt}
           onPromptChange={setPrompt}
@@ -308,7 +308,7 @@ const SiteAppGenerator = ({ mode }: SiteAppGeneratorProps) => {
           exportLabel="Télécharger le projet"
         />
 
-        <div className="flex h-full flex-col border-r border-border/50 bg-background/60">
+        <div className="flex h-full flex-col border-t border-border/50 bg-background/60 max-lg:border-l-0 max-lg:border-r-0 lg:border-t-0 lg:border-r">
           {phase === "planning" && plan ? (
             <GenerationPlanView
               plan={plan}
@@ -330,7 +330,11 @@ const SiteAppGenerator = ({ mode }: SiteAppGeneratorProps) => {
           )}
         </div>
 
-        <ProjectSandpack files={projectFiles} activeFile={activeFile} isGenerating={phase === "generating"} />
+        <ProjectSandpack
+          files={projectFiles}
+          activeFile={activeFile}
+          isGenerating={phase === "generating"}
+        />
       </div>
     </div>
   );
