@@ -158,7 +158,7 @@ const Index = () => {
       </section>
 
       <Dialog open={Boolean(activeTool)} onOpenChange={handleDialogChange}>
-        <DialogContent className="max-w-[1200px] w-full h-[90vh] border border-white/10 bg-slate-950/95 p-0 backdrop-blur-xl">
+        <DialogContent className="flex h-[92vh] w-full max-w-[100vw] flex-col overflow-hidden border border-white/10 bg-slate-950/95 p-0 backdrop-blur-xl sm:h-[90vh] sm:max-w-[1200px]">
           <div className="flex h-full flex-col">
             <div className="flex-1 overflow-y-auto">
               <div className="h-full">

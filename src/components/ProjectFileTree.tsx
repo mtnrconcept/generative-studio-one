@@ -112,7 +112,7 @@ const ProjectFileTree = ({ files, activeFile, onSelect }: ProjectFileTreeProps) 
   };
 
   return (
-    <div className="flex h-full flex-col border-r border-border/50 bg-background/60">
+    <div className="flex h-full flex-col border-t border-border/50 bg-background/60 lg:border-t-0 lg:border-r">
       <div className="border-b border-border/40 px-4 py-3">
         <p className="text-sm font-semibold text-muted-foreground">Arborescence du projet</p>
       </div>
