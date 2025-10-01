@@ -1,4 +1,5 @@
 import type { GeneratedFile } from "@/types/result";
+import type { GenerationPlan, PlanSection, PlanStep } from "@/types/plan";
 
 interface FileDescriptor {
   code: string;
@@ -22,6 +23,145 @@ const sanitizeProjectName = (name: string) =>
     .replace(/\s+/g, " ")
     .replace(/[\\/:*?"<>|]+/g, "")
     .trim() || "Projet Généré";
+
+const inferAudience = (prompt: string) => {
+  const lowered = prompt.toLowerCase();
+  if (/(marchand|commerce|boutique)/.test(lowered)) return "Clientèle e-commerce";
+  if (/(saas|startup|b2b|logiciel)/.test(lowered)) return "Utilisateurs SaaS";
+  if (/(portfolio|créatif|designer|photographe)/.test(lowered)) return "Audience créative";
+  if (/(communauté|événement|association)/.test(lowered)) return "Communauté engagée";
+  return "Audience générale";
+};
+
+const inferTone = (prompt: string) => {
+  const lowered = prompt.toLowerCase();
+  if (/(lux|premium|élégant|raffiné)/.test(lowered)) return "ton premium et sophistiqué";
+  if (/(jeune|fun|énergique|dynamique)/.test(lowered)) return "ton énergique et accessible";
+  if (/(minimal|sobre|clair)/.test(lowered)) return "ton minimal et clair";
+  if (/(immersif|futuriste|néon)/.test(lowered)) return "ton futuriste immersif";
+  return "ton professionnel et rassurant";
+};
+
+const inferStyle = (prompt: string) => {
+  const lowered = prompt.toLowerCase();
+  if (/(sombre|dark|nocturne)/.test(lowered)) return "interface sombre contrastée";
+  if (/(clair|light|lumineux)/.test(lowered)) return "interface claire lumineuse";
+  if (/(néon|futuriste|cyber)/.test(lowered)) return "palette néon futuriste";
+  if (/(nature|organique|earth)/.test(lowered)) return "palette organique inspirée de la nature";
+  return "palette moderne à base d'indigo";
+};
+
+const buildStructureSteps = (prompt: string, kind: ProjectKind): PlanStep[] => {
+  const lowered = prompt.toLowerCase();
+  const steps: PlanStep[] = [];
+
+  steps.push({
+    id: "layout",
+    title: kind === "application" ? "Initialiser la navigation" : "Structurer la page d'accueil",
+    description:
+      kind === "application"
+        ? "Créer la navigation principale avec onglets et état actif pour les vues clés."
+        : "Définir la section Hero avec message principal, appel à l'action et sous-texte clarifiant l'offre.",
+    deliverable: kind === "application" ? "Composant App avec navigation" : "Composant Hero avec CTA",
+  });
+
+  if (/(produit|catalogue|commerce|boutique)/.test(lowered)) {
+    steps.push({
+      id: "catalogue",
+      title: "Mettre en avant les produits et offres",
+      description:
+        "Construire une grille produits avec visuel, prix, arguments de vente et appel à l'action marchand.",
+      deliverable: "Section produits détaillée",
+    });
+  }
+
+  if (/(témoignage|avis|clients)/.test(lowered)) {
+    steps.push({
+      id: "testimonials",
+      title: "Ajouter une section témoignages",
+      description:
+        "Afficher trois retours clients avec nom, rôle et bénéfice principal pour renforcer la preuve sociale.",
+      deliverable: "Section témoignages",
+    });
+  }
+
+  if (/(contact|formulaire|newsletter)/.test(lowered)) {
+    steps.push({
+      id: "contact",
+      title: "Préparer la conversion",
+      description:
+        "Inclure un bloc contact/newsletter avec formulaire minimal et message de confiance.",
+      deliverable: "Bloc formulaire fonctionnel",
+    });
+  }
+
+  if (kind === "application") {
+    steps.push({
+      id: "analytics",
+      title: "Construire les widgets de données",
+      description:
+        "Définir cartes statistiques, liste d'activité récente et tableau des tâches pour illustrer l'usage.",
+      deliverable: "Widgets analytiques et tableau Kanban",
+    });
+  } else {
+    steps.push({
+      id: "features",
+      title: "Détailler les bénéfices clés",
+      description:
+        "Créer une section caractéristiques avec icônes et arguments pour clarifier la proposition de valeur.",
+      deliverable: "Grille de fonctionnalités",
+    });
+  }
+
+  return steps;
+};
+
+const buildUiSteps = (prompt: string): PlanStep[] => {
+  const lowered = prompt.toLowerCase();
+  const steps: PlanStep[] = [
+    {
+      id: "palette",
+      title: "Définir la palette et la typographie",
+      description: `Appliquer une ${inferStyle(prompt)} avec typographie sans-serif lisible.`,
+      deliverable: "Variables Tailwind + styles globaux",
+    },
+    {
+      id: "cta",
+      title: "Styliser les appels à l'action",
+      description: lowered.includes("bouton vert")
+        ? "Transformer les boutons principaux en accent vert pour respecter le brief."
+        : "Mettre en avant les boutons primaires avec dégradé et hover animé.",
+      deliverable: "Boutons primaires alignés au style",
+    },
+  ];
+
+  if (/(responsive|mobile|adapté)/.test(lowered)) {
+    steps.push({
+      id: "responsive",
+      title: "Assurer le responsive",
+      description:
+        "Utiliser flexbox et grille responsive pour garantir une expérience optimale sur mobile et desktop.",
+      deliverable: "Breakpoints Tailwind",
+    });
+  }
+
+  return steps;
+};
+
+const buildQualitySteps = (kind: ProjectKind): PlanStep[] => [
+  {
+    id: "structure",
+    title: "Vérifier l'arborescence",
+    description: "Confirmer la présence des fichiers Vite (index.html, src/main.tsx, src/App.tsx).",
+    deliverable: "Structure Vite complète",
+  },
+  {
+    id: "instructions",
+    title: "Synthétiser les instructions",
+    description: "Rédiger un README/brief décrivant comment poursuivre le développement.",
+    deliverable: kind === "application" ? "Instructions pour dashboard" : "Guide de personnalisation",
+  },
+];
 
 const baseReactVite = (projectName: string): FileMap => ({
   "/index.html": {
@@ -371,6 +511,74 @@ const mapToArray = (files: FileMap): GeneratedFile[] =>
 const extractProjectName = (prompt: string) => {
   const match = prompt.match(/nom\s*:\s*([^\n]+)/i);
   return match ? sanitizeProjectName(match[1]) : undefined;
+};
+
+export const createProjectPlan = (prompt: string, kind: ProjectKind): GenerationPlan => {
+  const projectName = extractProjectName(prompt) ?? "Projet Généré";
+  const audience = inferAudience(prompt);
+  const tone = inferTone(prompt);
+  const primaryObjective = (kind === "application"
+    ? "mettre en scène un dashboard interactif"
+    : "présenter l'offre");
+  const structureSteps = buildStructureSteps(prompt, kind);
+  const uiSteps = buildUiSteps(prompt);
+  const qualitySteps = buildQualitySteps(kind);
+
+  const sections: PlanSection[] = [
+    {
+      title: "Analyse du brief",
+      objective: "Comprendre la demande et cadrer le périmètre de génération.",
+      steps: [
+        {
+          id: "context",
+          title: "Identifier le positionnement",
+          description: `Public cible : ${audience}. Objectif : ${primaryObjective}.`,
+          deliverable: "Résumé de brief",
+        },
+        {
+          id: "naming",
+          title: "Définir le nom du projet",
+          description: `Utiliser « ${projectName} » pour les métadonnées et dossiers générés.`,
+          deliverable: "Nom de dossier cohérent",
+        },
+      ],
+    },
+    {
+      title: kind === "application" ? "Architecture de l'application" : "Structure de la page",
+      objective: (kind === "application"
+        ? "Mettre en place les vues clés et la navigation de l'app."
+        : "Construire les sections de la landing page."),
+      steps: structureSteps,
+    },
+    {
+      title: "Interface & interactions",
+      objective: "Assurer une expérience visuelle cohérente avec le brief.",
+      steps: uiSteps,
+    },
+    {
+      title: "Livrables et qualité",
+      objective: "Garantir un projet exploitable immédiatement.",
+      steps: qualitySteps,
+    },
+  ];
+
+  return {
+    title: kind === "application" ? "Plan de génération d'application" : "Plan de génération de site web",
+    summary: `Préparer un projet React + Vite nommé « ${projectName} » avec un ${kind === "application" ? "dashboard interactif" : "site marketing"} en ${tone}.`,
+    sections,
+    successCriteria: [
+      "Structure Vite complète avec entrée React fonctionnelle",
+      (kind === "application"
+        ? "Navigation avec au moins trois vues simulées"
+        : "Hero + sections différenciées prêtes à personnaliser"),
+      "Styles cohérents avec le ton identifié",
+      "Instructions de prise en main rédigées",
+    ],
+    cautions: [
+      "Vérifier les textes générés pour correspondre exactement au produit",
+      "Compléter les intégrations backend manuellement si nécessaire",
+    ],
+  };
 };
 
 export const generateProjectFromPrompt = (
