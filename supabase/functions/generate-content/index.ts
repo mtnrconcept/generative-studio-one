@@ -167,8 +167,8 @@ Crée un script fonctionnel et bien structuré. Pas de texte en dehors du code e
 
     if (modification) {
       const modificationInstruction = existingContent
-        ? `Merci d'ajuster la proposition précédente sans repartir de zéro. Conserve ce qui fonctionne et applique uniquement les changements demandés: ${modification}`
-        : `Merci d'améliorer la proposition précédente en suivant ces instructions: ${modification}`;
+        ? `Tu dois reprendre strictement la proposition précédente fournie ci-dessus. Applique uniquement les changements explicitement demandés ci-dessous et conserve absolument tout le reste à l'identique (structure, style, contenus, textes, code, ressources, formats, classes, ids, commentaires, mise en page, etc.). N'invente aucun nouvel élément, ne supprime rien qui n'est pas mentionné et ne modifie pas l'ordre des sections si cela n'est pas demandé. Instructions de modification : ${modification}`
+        : `Merci d'améliorer la proposition précédente en suivant uniquement ces instructions, sans ajouter d'autres changements: ${modification}`;
       messages.push({ role: "user", content: modificationInstruction });
     }
 
