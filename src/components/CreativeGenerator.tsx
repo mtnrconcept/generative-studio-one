@@ -5,6 +5,10 @@ import PromptInput from "@/components/PromptInput";
 import ResultDisplay from "@/components/ResultDisplay";
 import GenerationPlanView from "@/components/GenerationPlanView";
 import GenerationProgress from "@/components/GenerationProgress";
+import ImageGenerationSettings, {
+  defaultImageGenerationSettings,
+} from "@/components/ImageGenerationSettings";
+import { cn } from "@/lib/utils";
 import type { GeneratedResult } from "@/types/result";
 import type { GenerationPlan, PlanExecutionStep, PlanStepStatus } from "@/types/plan";
 import {
@@ -13,6 +17,7 @@ import {
   getCreativeToolLabel,
   type CreativeTool,
 } from "@/lib/content-generators";
+import type { ImageGenerationSettings as ImageSettings } from "@/types/image";
 
 type Phase = "idle" | "planning" | "generating" | "complete";
 
@@ -66,7 +71,12 @@ const CreativeGenerator = ({ tool, description }: CreativeGeneratorProps) => {
   const [statusMessage, setStatusMessage] = useState<string>("");
   const [pendingPrompt, setPendingPrompt] = useState<string>("");
   const [pendingModification, setPendingModification] = useState<string | undefined>();
+  const [imageSettings, setImageSettings] = useState<ImageSettings>(
+    () => defaultImageGenerationSettings(),
+  );
   const timersRef = useRef<number[]>([]);
+
+  const isImageTool = tool === "image";
 
   const clearTimers = useCallback(() => {
     timersRef.current.forEach((identifier) => window.clearTimeout(identifier));
@@ -87,7 +97,9 @@ const CreativeGenerator = ({ tool, description }: CreativeGeneratorProps) => {
       try {
         setIsLoading(true);
         resetProgress();
-        const generatedPlan = createCreativePlan(tool, basePrompt, modification);
+        const generatedPlan = createCreativePlan(tool, basePrompt, modification, {
+          image: isImageTool ? imageSettings : undefined,
+        });
         setPlan(generatedPlan);
         setPhase("planning");
         setStatusHistory(["Plan proposé à partir du brief"]);
@@ -101,7 +113,7 @@ const CreativeGenerator = ({ tool, description }: CreativeGeneratorProps) => {
         setIsLoading(false);
       }
     },
-    [resetProgress, tool],
+    [imageSettings, isImageTool, resetProgress, tool],
   );
 
   const handleSubmit = useCallback(
@@ -194,6 +206,7 @@ const CreativeGenerator = ({ tool, description }: CreativeGeneratorProps) => {
             version,
             modification: pendingModification,
             previous: result,
+            imageSettings: isImageTool ? imageSettings : undefined,
           });
 
           setHistory((previous) => [...previous, generated]);
@@ -212,7 +225,59 @@ const CreativeGenerator = ({ tool, description }: CreativeGeneratorProps) => {
 
       timersRef.current.push(startTimer, endTimer);
     });
-  }, [clearTimers, history.length, pendingModification, pendingPrompt, plan, result, tool]);
+  }, [
+    clearTimers,
+    history.length,
+    imageSettings,
+    isImageTool,
+    pendingModification,
+    pendingPrompt,
+    plan,
+    result,
+    tool,
+  ]);
+
+  const handleImageSettingsChange = useCallback((settings: ImageSettings) => {
+    setImageSettings(settings);
+  }, []);
+
+  const handleResetImageSettings = useCallback(() => {
+    setImageSettings(defaultImageGenerationSettings());
+  }, []);
+
+  const generatorContent = (
+    <>
+      <PromptInput
+        onSubmit={handleSubmit}
+        onRefineSubmit={handleRefineSubmit}
+        isLoading={isLoading}
+        selectedCategory={label}
+        hasResult={Boolean(result)}
+        history={history}
+      />
+
+      {plan && phase === "planning" && (
+        <GenerationPlanView
+          plan={plan}
+          onConfirm={handleConfirmPlan}
+          onEdit={handleEditPlan}
+          confirmLabel="Valider le plan et générer"
+          isConfirming={isLoading}
+        />
+      )}
+
+      {(phase === "generating" || executionSteps.length > 0 || statusHistory.length > 0) && (
+        <GenerationProgress
+          steps={executionSteps}
+          statusMessage={statusMessage}
+          history={statusHistory}
+          phase={phase}
+        />
+      )}
+
+      <ResultDisplay result={result} history={history} />
+    </>
+  );
 
   return (
     <div className="flex h-full flex-col bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
@@ -222,36 +287,26 @@ const CreativeGenerator = ({ tool, description }: CreativeGeneratorProps) => {
       </div>
 
       <div className="flex-1 overflow-y-auto px-6 py-6">
-        <div className="mx-auto flex max-w-5xl flex-col gap-6">
-          <PromptInput
-            onSubmit={handleSubmit}
-            onRefineSubmit={handleRefineSubmit}
-            isLoading={isLoading}
-            selectedCategory={label}
-            hasResult={Boolean(result)}
-            history={history}
-          />
-
-          {plan && phase === "planning" && (
-            <GenerationPlanView
-              plan={plan}
-              onConfirm={handleConfirmPlan}
-              onEdit={handleEditPlan}
-              confirmLabel="Valider le plan et générer"
-              isConfirming={isLoading}
-            />
+        <div
+          className={cn(
+            "mx-auto flex w-full flex-col gap-6",
+            isImageTool ? "lg:max-w-6xl" : "max-w-5xl",
           )}
-
-          {(phase === "generating" || executionSteps.length > 0 || statusHistory.length > 0) && (
-            <GenerationProgress
-              steps={executionSteps}
-              statusMessage={statusMessage}
-              history={statusHistory}
-              phase={phase}
-            />
+        >
+          {isImageTool ? (
+            <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
+              <div className="flex flex-col gap-6">{generatorContent}</div>
+              <div className="lg:sticky lg:top-6">
+                <ImageGenerationSettings
+                  value={imageSettings}
+                  onChange={handleImageSettingsChange}
+                  onReset={handleResetImageSettings}
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-6">{generatorContent}</div>
           )}
-
-          <ResultDisplay result={result} history={history} />
         </div>
       </div>
     </div>

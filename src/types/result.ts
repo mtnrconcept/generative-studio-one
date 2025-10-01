@@ -1,3 +1,5 @@
+import type { ImageGenerationSettings } from "./image";
+
 export interface GeneratedFile {
   path: string;
   content: string;
@@ -17,4 +19,5 @@ export interface GeneratedResult {
   instructions?: string;
   projectName?: string;
   projectType?: string;
+  imageSettings?: ImageGenerationSettings;
 }
