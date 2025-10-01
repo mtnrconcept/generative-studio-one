@@ -146,6 +146,390 @@ interface PromptAnalysis {
   font: { package: string; family: string; fallback: string };
 }
 
+type MotionPreset = "float" | "slide" | "scale";
+
+type PaletteOverrideKeys = "primary" | "secondary" | "accent" | "background" | "surface";
+
+interface PromptOverrides {
+  hero?: Partial<HeroContent>;
+  sections?: Partial<SectionToggles>;
+  palette?: Partial<Record<PaletteOverrideKeys, string>>;
+  tone?: string;
+  ambiance?: string;
+  motion?: MotionPreset;
+}
+
+const componentToHex = (component: number) => component.toString(16).padStart(2, "0");
+
+const normalizeHexColor = (hex: string) => {
+  const sanitized = hex.replace(/[^0-9a-f]/gi, "");
+  if (sanitized.length === 3) {
+    return sanitized
+      .split("")
+      .map((char) => char + char)
+      .join("");
+  }
+  if (sanitized.length === 6) {
+    return sanitized;
+  }
+  return null;
+};
+
+const rgbToHex = (red: number, green: number, blue: number) =>
+  `#${componentToHex(red)}${componentToHex(green)}${componentToHex(blue)}`;
+
+const hexToRgb = (hex: string): { r: number; g: number; b: number } | null => {
+  const normalized = normalizeHexColor(hex);
+  if (!normalized) return null;
+  const numeric = parseInt(normalized, 16);
+  if (Number.isNaN(numeric)) return null;
+  return {
+    r: (numeric >> 16) & 255,
+    g: (numeric >> 8) & 255,
+    b: numeric & 255,
+  };
+};
+
+const resolveColorValue = (value: string): string | undefined => {
+  const hexMatch = value.match(/#([0-9a-f]{3,8})/i);
+  if (hexMatch) {
+    const normalized = normalizeHexColor(hexMatch[1]);
+    if (normalized) {
+      return `#${normalized}`;
+    }
+  }
+
+  const rgbMatch = value.match(/rgb\s*\((\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*\)/i);
+  if (rgbMatch) {
+    const red = Number.parseInt(rgbMatch[1], 10);
+    const green = Number.parseInt(rgbMatch[2], 10);
+    const blue = Number.parseInt(rgbMatch[3], 10);
+    if ([red, green, blue].every((component) => component >= 0 && component <= 255)) {
+      return rgbToHex(red, green, blue);
+    }
+  }
+
+  const lowered = value.toLowerCase();
+  const mapping: Array<{ pattern: RegExp; hex: string }> = [
+    { pattern: /(emerald|vert|green|menthe|sapin|olive)/, hex: "#22c55e" },
+    { pattern: /(bleu|blue|azur|cobalt|marine)/, hex: "#2563eb" },
+    { pattern: /(violet|pourpre|purple|mauve)/, hex: "#8b5cf6" },
+    { pattern: /(rose|pink|fuchsia|magenta)/, hex: "#ec4899" },
+    { pattern: /(rouge|red|cramoisi|scarlet)/, hex: "#ef4444" },
+    { pattern: /(orange|ambre|amber|cuivre|corail)/, hex: "#f97316" },
+    { pattern: /(jaune|yellow|gold|doré|dorée)/, hex: "#facc15" },
+    { pattern: /(turquoise|cyan|teal)/, hex: "#14b8a6" },
+    { pattern: /(noir|black|charbon|anthracite)/, hex: "#0f172a" },
+    { pattern: /(blanc|white|ivoire|neige)/, hex: "#f8fafc" },
+    { pattern: /(gris|gray|argent|silver|chrome)/, hex: "#64748b" },
+  ];
+
+  const match = mapping.find(({ pattern }) => pattern.test(lowered));
+  return match?.hex;
+};
+
+const getRelativeLuminance = (hex: string) => {
+  const rgb = hexToRgb(hex);
+  if (!rgb) return 0;
+  const normalize = (component: number) => {
+    const channel = component / 255;
+    return channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
+  };
+
+  const r = normalize(rgb.r);
+  const g = normalize(rgb.g);
+  const b = normalize(rgb.b);
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+};
+
+const getReadableForeground = (hex: string) => (getRelativeLuminance(hex) > 0.55 ? "#0f172a" : "#f8fafc");
+
+const adjustHex = (hex: string, amount: number) => {
+  const rgb = hexToRgb(hex);
+  if (!rgb) return hex;
+  const adjust = (value: number) => Math.max(0, Math.min(255, value + amount));
+  return rgbToHex(adjust(rgb.r), adjust(rgb.g), adjust(rgb.b));
+};
+
+const adjustHexByLuminance = (hex: string, delta: number) => {
+  const direction = getRelativeLuminance(hex) > 0.55 ? -1 : 1;
+  return adjustHex(hex, delta * direction);
+};
+
+const buildGradientFromHex = (hex: string) => {
+  const base = hexToRgb(hex);
+  if (!base) return undefined;
+  const mid = hexToRgb(adjustHex(hex, 22));
+  const end = hexToRgb(adjustHex(hex, 44));
+  if (!mid || !end) return undefined;
+
+  return {
+    from: `rgba(${base.r}, ${base.g}, ${base.b}, 0.32)`,
+    via: `rgba(${mid.r}, ${mid.g}, ${mid.b}, 0.28)`,
+    to: `rgba(${end.r}, ${end.g}, ${end.b}, 0.24)`,
+  };
+};
+
+const parseBooleanValue = (value: string): boolean | undefined => {
+  const lowered = value.toLowerCase();
+  if (/(^|\s)(oui|yes|true|activer|ajouter|inclure)(\s|$)/.test(lowered)) return true;
+  if (/(^|\s)(non|no|false|retirer|désactiver|exclure)(\s|$)/.test(lowered)) return false;
+  if (/^1$/.test(lowered)) return true;
+  if (/^0$/.test(lowered)) return false;
+  return undefined;
+};
+
+const extractPromptOverrides = (prompt: string): PromptOverrides => {
+  const hero: Partial<HeroContent> = {};
+  const sections: Partial<SectionToggles> = {};
+  const palette: Partial<Record<PaletteOverrideKeys, string>> = {};
+  let tone: string | undefined;
+  let ambiance: string | undefined;
+  let motion: MotionPreset | undefined;
+  let hasHero = false;
+  let hasSections = false;
+  let hasPalette = false;
+
+  const lines = prompt
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  lines.forEach((line) => {
+    const [rawKey, ...rawValue] = line.split(":");
+    if (rawValue.length === 0) return;
+    const key = rawKey.trim().toLowerCase();
+    const value = rawValue.join(":").trim();
+    if (!value || key.startsWith("nom")) return;
+
+    if (/^(hero\s*)?titre$|^title$|^headline$/.test(key)) {
+      hero.title = value;
+      hasHero = true;
+      return;
+    }
+
+    if (/^(sous[-\s]?titre|description|subheadline|tagline)$/.test(key)) {
+      hero.subtitle = value;
+      hasHero = true;
+      return;
+    }
+
+    if (/^(accroche|highlight|mise en avant|hook)$/.test(key)) {
+      hero.highlight = value;
+      hasHero = true;
+      return;
+    }
+
+    if (/^(eyebrow|sur[-\s]?titre|mention)$/.test(key)) {
+      hero.eyebrow = value;
+      hasHero = true;
+      return;
+    }
+
+    if (/^(cta|cta\s*principal|cta\s*primaire|call to action|bouton principal)$/.test(key)) {
+      hero.primaryCta = value;
+      hasHero = true;
+      return;
+    }
+
+    if (/^(cta\s*secondaire|secondary cta|bouton secondaire)$/.test(key)) {
+      hero.secondaryCta = value;
+      hasHero = true;
+      return;
+    }
+
+    if (/^(témoignages?|testimonials?)$/.test(key)) {
+      const parsed = parseBooleanValue(value);
+      if (parsed !== undefined) {
+        sections.showTestimonials = parsed;
+        hasSections = true;
+      }
+      return;
+    }
+
+    if (/^(tarifs?|pricing|prix)$/.test(key)) {
+      const parsed = parseBooleanValue(value);
+      if (parsed !== undefined) {
+        sections.showPricing = parsed;
+        hasSections = true;
+      }
+      return;
+    }
+
+    if (/^(faq|questions fréquentes)$/.test(key)) {
+      const parsed = parseBooleanValue(value);
+      if (parsed !== undefined) {
+        sections.showFaq = parsed;
+        hasSections = true;
+      }
+      return;
+    }
+
+    if (/^(section\s*cta|cta\s*section|bloc cta|call to action section)$/.test(key)) {
+      const parsed = parseBooleanValue(value);
+      if (parsed !== undefined) {
+        sections.showCta = parsed;
+        hasSections = true;
+      }
+      return;
+    }
+
+    if (key === "sections") {
+      const lowered = value.toLowerCase();
+      sections.showTestimonials = /témoignage|testimonial/.test(lowered);
+      sections.showPricing = /tarif|pricing|prix|plan/.test(lowered);
+      sections.showFaq = /faq|questions?/.test(lowered);
+      sections.showCta = /cta|call to action|contact|d[ée]mo|essai/.test(lowered);
+      hasSections = true;
+      return;
+    }
+
+    if (/^(ton|tonalité|tone)$/.test(key)) {
+      tone = value;
+      return;
+    }
+
+    if (/^(ambiance|style|mood)$/.test(key)) {
+      ambiance = value;
+      return;
+    }
+
+    if (/^(animation|motion|mouvement)$/.test(key)) {
+      const lowered = value.toLowerCase();
+      if (/(float|planant|léger|lévite)/.test(lowered)) {
+        motion = "float";
+      } else if (/(scale|zoom|pulse|amplification)/.test(lowered)) {
+        motion = "scale";
+      } else if (/(slide|glissement|dynamique|défilement)/.test(lowered)) {
+        motion = "slide";
+      }
+      return;
+    }
+
+    if (/^(palette|couleurs)$/.test(key)) {
+      const candidates = value
+        .split(/[;,]/)
+        .map((entry) => resolveColorValue(entry))
+        .filter((entry): entry is string => Boolean(entry));
+
+      if (candidates[0]) {
+        palette.primary = candidates[0];
+        hasPalette = true;
+      }
+      if (candidates[1]) {
+        palette.accent = candidates[1];
+        hasPalette = true;
+      }
+      if (candidates[2]) {
+        palette.secondary = candidates[2];
+        hasPalette = true;
+      }
+      return;
+    }
+
+    if (/^(couleur\s*primaire|primary color|couleur\s*bouton|primaire)$/.test(key)) {
+      const color = resolveColorValue(value);
+      if (color) {
+        palette.primary = color;
+        hasPalette = true;
+      }
+      return;
+    }
+
+    if (/^(couleur\s*secondaire|secondary color|secondaire)$/.test(key)) {
+      const color = resolveColorValue(value);
+      if (color) {
+        palette.secondary = color;
+        hasPalette = true;
+      }
+      return;
+    }
+
+    if (/^(couleur\s*accent|accent color|accent)$/.test(key)) {
+      const color = resolveColorValue(value);
+      if (color) {
+        palette.accent = color;
+        hasPalette = true;
+      }
+      return;
+    }
+
+    if (/^(couleur\s*fond|background color|fond)$/.test(key)) {
+      const color = resolveColorValue(value);
+      if (color) {
+        palette.background = color;
+        hasPalette = true;
+      }
+      return;
+    }
+
+    if (/^(couleur\s*surface|surface color|surface)$/.test(key)) {
+      const color = resolveColorValue(value);
+      if (color) {
+        palette.surface = color;
+        hasPalette = true;
+      }
+    }
+  });
+
+  return {
+    hero: hasHero ? hero : undefined,
+    sections: hasSections ? sections : undefined,
+    palette: hasPalette ? palette : undefined,
+    tone,
+    ambiance,
+    motion,
+  };
+};
+
+const applyPaletteOverrides = (
+  base: PaletteConfig,
+  overrides?: Partial<Record<PaletteOverrideKeys, string>>,
+): PaletteConfig => {
+  if (!overrides || Object.keys(overrides).length === 0) {
+    return base;
+  }
+
+  const palette: PaletteConfig = {
+    ...base,
+    gradient: { ...base.gradient },
+  };
+
+  if (overrides.primary) {
+    palette.primary = overrides.primary;
+    palette.primaryForeground = getReadableForeground(overrides.primary);
+  }
+
+  if (overrides.accent) {
+    palette.accent = overrides.accent;
+    palette.accentForeground = getReadableForeground(overrides.accent);
+  }
+
+  if (overrides.secondary) {
+    palette.secondary = overrides.secondary;
+  }
+
+  if (overrides.background) {
+    palette.background = overrides.background;
+    palette.foreground = getReadableForeground(overrides.background);
+    palette.surface = overrides.surface ?? adjustHexByLuminance(overrides.background, 18);
+    palette.muted = adjustHexByLuminance(overrides.background, 28);
+    palette.mutedForeground = getReadableForeground(palette.muted);
+    palette.border = adjustHexByLuminance(overrides.background, 36);
+    palette.ring = adjustHexByLuminance(overrides.background, 48);
+  } else if (overrides.surface) {
+    palette.surface = overrides.surface;
+  }
+
+  const gradientSource = overrides.primary ?? overrides.accent ?? overrides.secondary;
+  const gradient = gradientSource ? buildGradientFromHex(gradientSource) : undefined;
+  if (gradient) {
+    palette.gradient = gradient;
+  }
+
+  return palette;
+};
+
 const sanitizeProjectName = (name: string) =>
   name
     .trim()
@@ -1044,36 +1428,45 @@ const buildContentForSector = (projectName: string, sector: SectorKey) => {
 
 const analyzePrompt = (prompt: string, projectName: string): PromptAnalysis => {
   const lowered = prompt.toLowerCase();
-  const { key: paletteKey, palette } = determinePalette(prompt);
+  const overrides = extractPromptOverrides(prompt);
+  const { key: paletteKey, palette: detectedPalette } = determinePalette(prompt);
+  const palette = applyPaletteOverrides(detectedPalette, overrides.palette);
   const sectorKey = determineSector(prompt);
   const content = buildContentForSector(projectName, sectorKey);
-  const tone = inferTone(prompt);
+  const tone = overrides.tone ?? inferTone(prompt);
 
-  let motion: "float" | "slide" | "scale" = "slide";
-  if (/(apaisant|doux|premium|élégant|luxe)/.test(lowered)) motion = "float";
-  if (/(futuriste|tech|cyber|néon)/.test(lowered)) motion = "scale";
-  if (/(énergique|dynamique|sport|startup)/.test(lowered)) motion = "slide";
+  let motion: MotionPreset = overrides.motion ?? "slide";
+  if (!overrides.motion) {
+    if (/(apaisant|doux|premium|élégant|luxe)/.test(lowered)) motion = "float";
+    if (/(futuriste|tech|cyber|néon)/.test(lowered)) motion = "scale";
+    if (/(énergique|dynamique|sport|startup)/.test(lowered)) motion = "slide";
+  }
 
-  const showTestimonials = !/(sans témoignage|pas de témoignage)/.test(lowered);
-  const showPricing =
+  const pricingHeuristic =
     !/(sans pricing|sans tarif|gratuit uniquement)/.test(lowered) &&
     (/(tarif|pricing|prix)/.test(lowered) || ["saas", "finance", "ecommerce", "education", "wellness"].includes(sectorKey));
-  const showFaq = !/(sans faq|pas de faq)/.test(lowered);
-  const showCta = !/(sans cta|pas d'appel)/.test(lowered);
+
+  const sections = {
+    showTestimonials:
+      overrides.sections?.showTestimonials ?? !/(sans témoignage|pas de témoignage)/.test(lowered),
+    showPricing: overrides.sections?.showPricing ?? pricingHeuristic,
+    showFaq: overrides.sections?.showFaq ?? !/(sans faq|pas de faq)/.test(lowered),
+    showCta: overrides.sections?.showCta ?? !/(sans cta|pas d'appel)/.test(lowered),
+  };
+
+  const hero = overrides.hero ? { ...content.hero, ...overrides.hero } : content.hero;
+  const paletteName = overrides.palette && Object.keys(overrides.palette).length
+    ? `${palettePresets[paletteKey].name} (personnalisée)`
+    : palettePresets[paletteKey].name;
 
   return {
     palette,
-    paletteName: palettePresets[paletteKey].name,
-    ambiance: inferStyle(prompt),
+    paletteName,
+    ambiance: overrides.ambiance ?? inferStyle(prompt),
     sector: sectorLabels[sectorKey],
     motion,
-    sections: {
-      showTestimonials,
-      showPricing,
-      showFaq,
-      showCta,
-    },
-    hero: content.hero,
+    sections,
+    hero,
     metrics: content.metrics,
     features: content.features,
     testimonials: content.testimonials,
