@@ -1,5 +1,6 @@
 import type { GeneratedResult } from "@/types/result";
-import type { GenerationPlan, PlanSection, PlanStep } from "@/types/plan";
+import type { GenerationPlan, PlanSection } from "@/types/plan";
+import type { ImageAspectRatio, ImageGenerationSettings } from "@/types/image";
 
 export type CreativeTool = "image" | "music" | "agent" | "game";
 
@@ -8,6 +9,11 @@ interface GenerationOptions {
   version: number;
   modification?: string;
   previous?: GeneratedResult | null;
+  imageSettings?: ImageGenerationSettings;
+}
+
+interface PlanOptions {
+  image?: ImageGenerationSettings;
 }
 
 const TOOL_LABELS: Record<CreativeTool, string> = {
@@ -63,7 +69,114 @@ const extractColors = (prompt: string) => {
   return `palette ${detected[0]} et ${detected[1]}`;
 };
 
-const createImagePlan = (prompt: string, modification?: string): GenerationPlan => {
+const IMAGE_RATIO_CONFIG: Record<Exclude<ImageAspectRatio, "custom">, { width: number; height: number; label: string }> = {
+  "2:3": { width: 832, height: 1248, label: "portrait" },
+  "1:1": { width: 1024, height: 1024, label: "carré" },
+  "16:9": { width: 1280, height: 720, label: "paysage" },
+  "3:2": { width: 1200, height: 800, label: "photo paysage" },
+  "4:5": { width: 1024, height: 1280, label: "portrait social" },
+  "5:4": { width: 1280, height: 1024, label: "affiche" },
+  "21:9": { width: 1792, height: 768, label: "ultra large" },
+  "9:16": { width: 832, height: 1472, label: "vertical" },
+};
+
+const STYLE_PRESET_LABELS: Record<string, string> = {
+  "3d-render": "rendu 3D photoréaliste",
+  acrylic: "texture acrylique vibrante",
+  cinematic: "style cinématique haut contraste",
+  creative: "composition créative expérimentale",
+  dynamic: "style dynamique et énergique",
+  fashion: "mode éditoriale lumineuse",
+  "game-concept": "concept art de jeu vidéo",
+  "graphic-2d": "graphisme 2D moderne",
+  "graphic-3d": "graphisme 3D premium",
+  illustration: "illustration détaillée",
+  portrait: "portrait studio",
+  "portrait-cinematic": "portrait cinématique dramatique",
+  "portrait-fashion": "portrait fashion magazine",
+  "pro-bw": "photographie noir et blanc professionnelle",
+  "pro-color": "photographie couleur professionnelle",
+  "pro-film": "grain pellicule cinématographique",
+  "ray-traced": "rendu ray tracing hyper réaliste",
+  "stock-photo": "photo stock commerciale",
+};
+
+const STYLE_PRESET_PROMPTS: Record<string, string> = {
+  "3d-render": "hyper detailed 3d render with global illumination",
+  acrylic: "acrylic painting strokes and vivid pigments",
+  cinematic: "cinematic lighting, anamorphic lens, film still",
+  creative: "experimental creative composition, surreal details",
+  dynamic: "dynamic action lighting, motion design energy",
+  fashion: "high fashion editorial photography, studio lighting",
+  "game-concept": "AAA game concept art, dramatic lighting",
+  "graphic-2d": "premium 2d graphic design, clean vector shapes",
+  "graphic-3d": "3d graphic render, chrome reflections",
+  illustration: "highly detailed illustration, painterly",
+  portrait: "studio portrait photography, crisp focus",
+  "portrait-cinematic": "cinematic portrait lighting, shallow depth of field",
+  "portrait-fashion": "fashion portrait, editorial styling",
+  "pro-bw": "professional black and white photography, rich contrast",
+  "pro-color": "professional color grading, vibrant yet natural tones",
+  "pro-film": "analog film photography, fine grain, warm tones",
+  "ray-traced": "ray traced lighting, physically accurate reflections",
+  "stock-photo": "commercial stock photo, high clarity",
+};
+
+const DEFAULT_IMAGE_SETTINGS: ImageGenerationSettings = {
+  promptEnhance: true,
+  aspectRatio: "3:2",
+  customDimensions: {
+    width: IMAGE_RATIO_CONFIG["3:2"].width,
+    height: IMAGE_RATIO_CONFIG["3:2"].height,
+  },
+  imageCount: 1,
+  isPrivate: false,
+  stylePreset: undefined,
+  advanced: {
+    guidanceScale: 12,
+    stepCount: 40,
+    seed: "",
+    upscale: true,
+    highResolution: false,
+    negativePrompt: "",
+  },
+};
+
+const resolveAspectRatioDetails = (settings?: ImageGenerationSettings) => {
+  const ratio = settings?.aspectRatio ?? "3:2";
+  if (ratio === "custom") {
+    const dimensions = settings?.customDimensions ?? { width: 1536, height: 1024 };
+    return {
+      ratio,
+      label: "personnalisé",
+      width: dimensions.width,
+      height: dimensions.height,
+      readable: `${dimensions.width} × ${dimensions.height}`,
+    };
+  }
+
+  const config = IMAGE_RATIO_CONFIG[ratio] ?? IMAGE_RATIO_CONFIG["3:2"];
+  return {
+    ratio,
+    label: config.label,
+    width: config.width,
+    height: config.height,
+    readable: `${config.width} × ${config.height}`,
+  };
+};
+
+const describeStylePreset = (settings?: ImageGenerationSettings) => {
+  if (!settings?.stylePreset) {
+    return "style libre équilibré";
+  }
+  return STYLE_PRESET_LABELS[settings.stylePreset] ?? settings.stylePreset;
+};
+
+const createImagePlan = (
+  prompt: string,
+  modification?: string,
+  settings?: ImageGenerationSettings,
+): GenerationPlan => {
   const subject = detectKeyword(
     prompt,
     [
@@ -105,6 +218,10 @@ const createImagePlan = (prompt: string, modification?: string): GenerationPlan 
     "cadre frontal équilibré",
   );
   const palette = extractColors(prompt);
+  const ratioDetails = resolveAspectRatioDetails(settings);
+  const styleDescription = describeStylePreset(settings);
+  const imageCount = settings?.imageCount ?? 1;
+  const promptEnhance = settings?.promptEnhance ? "activée" : "désactivée";
 
   const sections: PlanSection[] = [
     {
@@ -207,13 +324,14 @@ const createImagePlan = (prompt: string, modification?: string): GenerationPlan 
 
   return {
     title: "Plan de génération d'image",
-    summary: `Créer une illustration ${style} centrée sur ${subject} dans ${mood} avec Google Nano Banana${summarySuffix}`,
+    summary: `Créer une illustration ${style} centrée sur ${subject} dans ${mood} (${ratioDetails.label} ${ratioDetails.readable}, ${imageCount} variante(s), amélioration ${promptEnhance}) avec Google Nano Banana${summarySuffix}`,
     sections,
     successCriteria: [
       "Sujet et ambiance fidèles au brief",
       "Composition lisible avec profondeur",
       "Palette harmonieuse et cohérente",
       "Paramètres Nano Banana documentés pour reproductibilité",
+      `Style ciblé : ${styleDescription}`,
     ],
     cautions: [
       "Respecter la perspective et les proportions des éléments",
@@ -660,8 +778,20 @@ const createGamePlan = (prompt: string, modification?: string): GenerationPlan =
 
 
 const generateImageResult = (options: GenerationOptions): GeneratedResult => {
-  const { prompt, version, modification } = options;
-  const hash = simpleHash(`${prompt}|${modification ?? ""}`);
+  const { prompt, version, modification, imageSettings } = options;
+  const effectiveSettings = imageSettings ?? DEFAULT_IMAGE_SETTINGS;
+  const ratioDetails = resolveAspectRatioDetails(effectiveSettings);
+  const styleDescriptor = describeStylePreset(effectiveSettings);
+  const providedSeed = effectiveSettings.advanced.seed.trim();
+  const hashInput = [
+    prompt,
+    modification ?? "",
+    ratioDetails.readable,
+    effectiveSettings.stylePreset ?? "libre",
+    effectiveSettings.promptEnhance ? "enhance" : "raw",
+    providedSeed,
+  ].join("|");
+  const hash = simpleHash(hashInput);
 
   const palettes = [
     "dégradé cobalt · indigo · lueur lavande",
@@ -699,46 +829,75 @@ const generateImageResult = (options: GenerationOptions): GeneratedResult => {
     "bokeh cinétique",
   ];
 
-  const seed = (hash % 10_000_000).toString().padStart(7, "0");
-  const steps = 38 + (hash % 12);
-  const cfg = (12 + (hash % 4)).toFixed(1);
+  const finalSeed = providedSeed && providedSeed.length > 0
+    ? providedSeed
+    : (hash % 10_000_000).toString().padStart(7, "0");
+  const steps = effectiveSettings.advanced.stepCount ?? 38 + (hash % 12);
+  const cfgValue = effectiveSettings.advanced.guidanceScale ?? 12 + (hash % 4);
+  const cfg = Number.isInteger(cfgValue) ? cfgValue.toFixed(0) : cfgValue.toFixed(1);
   const sampler = pick(
     ["Banana-Path v3", "Banana-Euler SDE", "Banana-Flow++"],
     hash,
     9,
   );
   const palette = pick(palettes, hash, 1);
-  const style = pick(renderStyles, hash, 3);
+  const fallbackStyle = pick(renderStyles, hash, 3);
   const angle = pick(cameraAngles, hash, 5);
   const lights = pick(lighting, hash, 7);
   const focusStyle = pick(focus, hash, 11);
+  const stylePrompt = effectiveSettings.stylePreset
+    ? STYLE_PRESET_PROMPTS[effectiveSettings.stylePreset] ?? styleDescriptor
+    : fallbackStyle;
+  const styleLabel = effectiveSettings.stylePreset ? styleDescriptor : stylePrompt;
 
   const masterPrompt = [
-    prompt.trim(),
-    style,
+    effectiveSettings.promptEnhance
+      ? `highly detailed description: ${prompt.trim()}`
+      : prompt.trim(),
+    stylePrompt,
     angle,
     lights,
     focusStyle,
     `palette ${palette}`,
+    effectiveSettings.advanced.highResolution ? "leonardo diffusion high resolution" : "",
+    effectiveSettings.advanced.upscale ? "super resolution detail enhancement" : "",
   ]
     .filter(Boolean)
     .join(" · ");
 
-  const negativePrompt = [
+  const negativePromptParts = [
     "artefacts numériques",
     "distorsion anatomique",
     "texte",
     "filigrane",
     "sur-exposition",
-  ].join(", ");
+  ];
+  if (effectiveSettings.advanced.negativePrompt.trim()) {
+    negativePromptParts.push(effectiveSettings.advanced.negativePrompt.trim());
+  }
+  const negativePrompt = negativePromptParts.join(", ");
 
-  const preview = `https://picsum.photos/seed/nano-banana-${encodeURIComponent(`${hash}-${version}`)}/1280/832`;
+  const preview = `https://picsum.photos/seed/nano-banana-${encodeURIComponent(`${hash}-${version}`)}/${ratioDetails.width}/${ratioDetails.height}`;
+
+  const settingsSummary = [
+    `- Prompt enhance : ${effectiveSettings.promptEnhance ? "activé" : "désactivé"}`,
+    `- Format : ${ratioDetails.readable} (${ratioDetails.label})`,
+    `- Variations : ${effectiveSettings.imageCount}`,
+    `- Style : ${styleDescriptor}`,
+    `- Confidentialité : ${effectiveSettings.isPrivate ? "privée" : "publique"}`,
+    `- Upscale : ${effectiveSettings.advanced.upscale ? "oui" : "non"} · Haute résolution : ${effectiveSettings.advanced.highResolution ? "oui" : "non"}`,
+    `- Guidance : ${cfgValue} · Steps : ${steps}`,
+    `- Seed : ${finalSeed || "aléatoire"}`,
+  ];
+  if (effectiveSettings.advanced.negativePrompt.trim()) {
+    settingsSummary.push(`- Prompt négatif personnalisé : ${effectiveSettings.advanced.negativePrompt.trim()}`);
+  }
 
   const content = [
     "🧠 Analyse Nano Banana",
     `- Intention principale : ${prompt.trim() || "visuel conceptuel"}.`,
     `- Variation demandée : ${modification ?? "première exploration"}.`,
-    `- Style retenu : ${style} (${palette}).`,
+    `- Style retenu : ${styleLabel} (${palette}).`,
     "",
     "🎨 Prompt Google Nano Banana",
     "```",
@@ -752,9 +911,12 @@ const generateImageResult = (options: GenerationOptions): GeneratedResult => {
     "",
     "⚙️ Paramètres de rendu recommandés",
     `- Modèle : Google Nano Banana diffusion XL`,
-    `- Seed : ${seed} · Steps : ${steps} · CFG : ${cfg}`,
-    `- Sampler : ${sampler} · Résolution : 1536 × 1024`,
-    `- Upscale : ×2 détail + netteté AI post-process`,
+    `- Seed : ${finalSeed || "aléatoire"} · Steps : ${steps} · CFG : ${cfg}`,
+    `- Sampler : ${sampler} · Résolution : ${ratioDetails.readable}`,
+    `- Upscale : ${effectiveSettings.advanced.upscale ? "actif" : "désactivé"} · Mode HD : ${effectiveSettings.advanced.highResolution ? "actif" : "désactivé"}`,
+    "",
+    "📋 Paramètres Leonardo simulés",
+    ...settingsSummary,
     "",
     "📋 Checklist qualité",
     "- Vérifier cohérence lumière/ombres",
@@ -770,6 +932,16 @@ const generateImageResult = (options: GenerationOptions): GeneratedResult => {
     modification,
     preview,
     content,
+    imageSettings:
+      imageSettings
+        ? imageSettings
+        : {
+            ...DEFAULT_IMAGE_SETTINGS,
+            customDimensions: DEFAULT_IMAGE_SETTINGS.customDimensions
+              ? { ...DEFAULT_IMAGE_SETTINGS.customDimensions }
+              : undefined,
+            advanced: { ...DEFAULT_IMAGE_SETTINGS.advanced },
+          },
   };
 };
 
@@ -1059,10 +1231,11 @@ export const createCreativePlan = (
   tool: CreativeTool,
   prompt: string,
   modification?: string,
+  options?: PlanOptions,
 ): GenerationPlan => {
   switch (tool) {
     case "image":
-      return createImagePlan(prompt, modification);
+      return createImagePlan(prompt, modification, options?.image);
     case "music":
       return createMusicPlan(prompt, modification);
     case "agent":

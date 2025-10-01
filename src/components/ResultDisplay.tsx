@@ -5,6 +5,7 @@ import CodeViewer from "./CodeViewer";
 import ReactProjectViewer from "./ReactProjectViewer";
 import type { GeneratedResult } from "@/types/result";
 import type { ContextualEditPayload } from "@/types/editor";
+import type { ImageGenerationSettings } from "@/types/image";
 
 interface ResultDisplayProps {
   result: GeneratedResult | null;
@@ -75,6 +76,54 @@ const renderResultContent = (entry: GeneratedResult, options?: RenderOptions) =>
   );
 };
 
+const RATIO_DISPLAY_LABELS: Record<string, string> = {
+  "2:3": "Portrait 2:3",
+  "1:1": "Carré 1:1",
+  "16:9": "Paysage 16:9",
+  "3:2": "Paysage 3:2",
+  "4:5": "Portrait 4:5",
+  "5:4": "Affiche 5:4",
+  "21:9": "Ultra large 21:9",
+  "9:16": "Vertical 9:16",
+  custom: "Personnalisé",
+};
+
+const STYLE_DISPLAY_LABELS: Record<string, string> = {
+  "3d-render": "3D Render",
+  acrylic: "Acrylic",
+  cinematic: "Cinematic",
+  creative: "Creative",
+  dynamic: "Dynamic",
+  fashion: "Fashion",
+  "game-concept": "Game Concept",
+  "graphic-2d": "Graphic Design 2D",
+  "graphic-3d": "Graphic Design 3D",
+  illustration: "Illustration",
+  portrait: "Portrait",
+  "portrait-cinematic": "Portrait Cinematic",
+  "portrait-fashion": "Portrait Fashion",
+  "pro-bw": "Pro B&W photography",
+  "pro-color": "Pro color photography",
+  "pro-film": "Pro film photography",
+  "ray-traced": "Ray Traced",
+  "stock-photo": "Stock Photo",
+};
+
+const formatDimensions = (settings: ImageGenerationSettings) => {
+  if (settings.aspectRatio === "custom" && settings.customDimensions) {
+    return `${settings.customDimensions.width} × ${settings.customDimensions.height}`;
+  }
+  const label = RATIO_DISPLAY_LABELS[settings.aspectRatio];
+  return label ? `${label}` : settings.aspectRatio;
+};
+
+const formatStyle = (settings: ImageGenerationSettings) => {
+  if (!settings.stylePreset) {
+    return "Libre";
+  }
+  return STYLE_DISPLAY_LABELS[settings.stylePreset] ?? settings.stylePreset;
+};
+
 const ResultDisplay = ({ result, history, onContextEdit }: ResultDisplayProps) => {
   if (!result) return null;
 
@@ -124,6 +173,58 @@ const ResultDisplay = ({ result, history, onContextEdit }: ResultDisplayProps) =
             </div>
           )}
         </div>
+
+        {result.type === 'image' && result.imageSettings && (
+          <div className="space-y-3 rounded-lg border border-border/40 bg-background/40 p-4">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-semibold text-foreground">Paramètres Leonardo.ai</p>
+              <span className="text-xs uppercase tracking-wide text-muted-foreground">
+                {formatDimensions(result.imageSettings)}
+              </span>
+            </div>
+            <div className="grid gap-3 text-xs text-muted-foreground sm:grid-cols-2">
+              <div className="space-y-1">
+                <p className="font-medium text-foreground">Style</p>
+                <p>{formatStyle(result.imageSettings)}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="font-medium text-foreground">Variations</p>
+                <p>{result.imageSettings.imageCount}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="font-medium text-foreground">Prompt enhance</p>
+                <p>{result.imageSettings.promptEnhance ? 'Activé' : 'Désactivé'}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="font-medium text-foreground">Confidentialité</p>
+                <p>{result.imageSettings.isPrivate ? 'Privée' : 'Publique'}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="font-medium text-foreground">Guidance · Steps</p>
+                <p>
+                  {result.imageSettings.advanced.guidanceScale} · {result.imageSettings.advanced.stepCount}
+                </p>
+              </div>
+              <div className="space-y-1">
+                <p className="font-medium text-foreground">Upscale / HD</p>
+                <p>
+                  {result.imageSettings.advanced.upscale ? 'Oui' : 'Non'} ·{' '}
+                  {result.imageSettings.advanced.highResolution ? 'Oui' : 'Non'}
+                </p>
+              </div>
+              <div className="space-y-1">
+                <p className="font-medium text-foreground">Seed</p>
+                <p>{result.imageSettings.advanced.seed || 'Aléatoire'}</p>
+              </div>
+            </div>
+            {result.imageSettings.advanced.negativePrompt.trim() && (
+              <div className="rounded-md bg-background/60 p-3 text-xs leading-relaxed text-muted-foreground">
+                <span className="font-medium text-foreground">Prompt négatif :</span>{' '}
+                {result.imageSettings.advanced.negativePrompt}
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="rounded-lg bg-background/50 p-4">
           {renderResultContent(result, { enableVisualEditing: true, onContextEdit })}
