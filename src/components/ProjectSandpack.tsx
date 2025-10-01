@@ -27,6 +27,15 @@ const ProjectSandpack = ({ files, activeFile }: ProjectSandpackProps) => {
     }, {});
   }, [files]);
 
+  const sandpackKey = useMemo(() => {
+    if (!files.length) return "empty";
+
+    return files
+      .map((file) => normalizeSandpackPath(file.path))
+      .sort()
+      .join("|");
+  }, [files]);
+
   if (!files.length || !sandpackFiles) {
     return (
       <Card className="flex h-full flex-col items-center justify-center border-border/40 bg-muted/10 p-8 text-center text-sm text-muted-foreground">
@@ -43,7 +52,12 @@ const ProjectSandpack = ({ files, activeFile }: ProjectSandpackProps) => {
         <p className="text-sm font-semibold text-muted-foreground">Code & Preview live</p>
       </div>
       <div className="flex-1 min-h-0 bg-background/40">
-        <SandpackProvider template="react-ts" files={sandpackFiles} options={{ activeFile: defaultActiveFile }}>
+        <SandpackProvider
+          key={`${sandpackKey}-${defaultActiveFile}`}
+          template="react-ts"
+          files={sandpackFiles}
+          options={{ activeFile: defaultActiveFile }}
+        >
           <SandpackThemeProvider>
             <SandpackLayout style={{ height: "100%" }}>
               <SandpackCodeEditor style={{ height: "100%" }} showTabs showLineNumbers />
