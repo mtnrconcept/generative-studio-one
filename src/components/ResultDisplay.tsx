@@ -1,6 +1,6 @@
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Download, Share2, Sparkles } from "lucide-react";
+import { Download, Sparkles } from "lucide-react";
 import CodeViewer from "./CodeViewer";
 
 interface ResultDisplayProps {
@@ -28,7 +28,7 @@ const ResultDisplay = ({ result }: ResultDisplayProps) => {
   };
 
   return (
-    <Card className="w-full max-w-4xl mx-auto bg-card/50 backdrop-blur-sm border-border/50 overflow-hidden">
+    <Card className="w-full bg-card/50 backdrop-blur-sm border-border/50 overflow-hidden">
       <div className="p-6 space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
