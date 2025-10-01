@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import CategoryCard from "@/components/CategoryCard";
 import PromptInput from "@/components/PromptInput";
 import ResultDisplay from "@/components/ResultDisplay";
+import LoadingIndicator from "@/components/LoadingIndicator";
 import heroBanner from "@/assets/hero-banner.jpg";
 import gameIcon from "@/assets/game-icon.png";
 import imageIcon from "@/assets/image-icon.png";
@@ -11,6 +12,15 @@ import appIcon from "@/assets/app-icon.png";
 import webIcon from "@/assets/web-icon.png";
 import agentIcon from "@/assets/agent-icon.png";
 import { supabase } from "@/integrations/supabase/client";
+import { Card } from "@/components/ui/card";
+import { Sparkles } from "lucide-react";
+
+const loadingSteps = [
+  "Analyse du prompt et compréhension du contexte",
+  "Sélection du meilleur modèle IA pour la demande",
+  "Génération du contenu en cours",
+  "Préparation du rendu final",
+];
 
 const categories = [
   {
@@ -54,6 +64,7 @@ const categories = [
 const Index = () => {
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
+  const [wasLoading, setWasLoading] = useState(false);
   const [result, setResult] = useState<{
     type: string;
     category: string;
@@ -61,6 +72,9 @@ const Index = () => {
     preview?: string;
     code?: string;
   } | null>(null);
+  const [loadingProgress, setLoadingProgress] = useState(0);
+  const [loadingMessage, setLoadingMessage] = useState("");
+  const [loadingHistory, setLoadingHistory] = useState<string[]>([]);
 
   const handleCategorySelect = (categoryId: string) => {
     setSelectedCategory(categoryId);
@@ -68,8 +82,12 @@ const Index = () => {
   };
 
   const handlePromptSubmit = async (prompt: string) => {
+    setWasLoading(true);
+    setLoadingProgress(0);
+    setLoadingMessage("");
+    setLoadingHistory([]);
     setIsLoading(true);
-    
+
     try {
       const { data, error } = await supabase.functions.invoke("generate-content", {
         body: {
@@ -92,10 +110,67 @@ const Index = () => {
     } catch (error) {
       console.error("Erreur:", error);
       toast.error("Une erreur est survenue lors de la génération");
+      setLoadingMessage("Une erreur est survenue lors de la génération");
+      setLoadingHistory((prev) => {
+        if (prev[prev.length - 1] === "Une erreur est survenue lors de la génération") {
+          return prev;
+        }
+
+        return [...prev, "Une erreur est survenue lors de la génération"];
+      });
+      setLoadingProgress(100);
+      setWasLoading(false);
     } finally {
       setIsLoading(false);
     }
   };
+
+  useEffect(() => {
+    let stepIndex = 0;
+    let interval: ReturnType<typeof setInterval> | undefined;
+
+    if (isLoading) {
+      setLoadingHistory([loadingSteps[0]]);
+      setLoadingMessage(loadingSteps[0]);
+      setLoadingProgress(Math.round((1 / loadingSteps.length) * 100));
+
+      interval = setInterval(() => {
+        stepIndex += 1;
+
+        if (stepIndex < loadingSteps.length) {
+          const nextMessage = loadingSteps[stepIndex];
+          setLoadingMessage(nextMessage);
+          setLoadingHistory((prev) => {
+            if (prev[prev.length - 1] === nextMessage) {
+              return prev;
+            }
+
+            return [...prev, nextMessage];
+          });
+          setLoadingProgress(Math.min(95, Math.round(((stepIndex + 1) / loadingSteps.length) * 100)));
+        } else if (interval) {
+          clearInterval(interval);
+        }
+      }, 1500);
+    } else if (!isLoading && wasLoading) {
+      setLoadingProgress(100);
+      setLoadingMessage("Finalisation terminée");
+      setLoadingHistory((prev) => {
+        if (!prev.length || prev[prev.length - 1] === "Finalisation terminée") {
+          return prev.length ? prev : ["Finalisation terminée"];
+        }
+
+        return [...prev, "Finalisation terminée"];
+      });
+      setWasLoading(false);
+    }
+
+    return () => {
+      if (interval) {
+        clearInterval(interval);
+      }
+    };
+  }, [isLoading, wasLoading]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -138,45 +213,71 @@ const Index = () => {
         </section>
       )}
 
-      {/* Prompt Input Section */}
-      {selectedCategory && !result && (
+      {/* Prompt & Result Section */}
+      {selectedCategory && (
         <section className="container mx-auto px-4 py-16">
-          <div className="text-center mb-8">
+          <div className="text-center mb-10">
             <button
-              onClick={() => setSelectedCategory("")}
+              onClick={() => {
+                setSelectedCategory("");
+                setResult(null);
+                setLoadingHistory([]);
+                setLoadingMessage("");
+                setLoadingProgress(0);
+                setWasLoading(false);
+              }}
               className="text-muted-foreground hover:text-foreground transition-colors mb-4"
             >
               ← Retour aux catégories
             </button>
             <h2 className="text-3xl font-bold mb-2">
-              Créer {categories.find(c => c.id === selectedCategory)?.title}
+              Créer {categories.find((c) => c.id === selectedCategory)?.title}
             </h2>
             <p className="text-muted-foreground">
               Décrivez votre vision, l'IA s'occupe du reste
             </p>
           </div>
-          
-          <PromptInput
-            onSubmit={handlePromptSubmit}
-            isLoading={isLoading}
-            selectedCategory={categories.find(c => c.id === selectedCategory)?.title || ""}
-          />
-        </section>
-      )}
 
-      {/* Result Section */}
-      {result && (
-        <section className="container mx-auto px-4 py-16">
-          <div className="text-center mb-8">
-            <button
-              onClick={() => setResult(null)}
-              className="text-muted-foreground hover:text-foreground transition-colors mb-4"
-            >
-              ← Nouvelle création
-            </button>
+          <div className="grid gap-8 lg:grid-cols-[minmax(0,420px)_1fr] items-start">
+            <div className="space-y-4">
+              <div className="rounded-xl border border-border/60 bg-card/50 backdrop-blur-sm p-6">
+                <PromptInput
+                  onSubmit={handlePromptSubmit}
+                  isLoading={isLoading}
+                  selectedCategory={categories.find((c) => c.id === selectedCategory)?.title || ""}
+                />
+              </div>
+
+              {(loadingHistory.length > 0 || isLoading) && (
+                <LoadingIndicator
+                  progress={loadingProgress}
+                  message={loadingMessage}
+                  history={loadingHistory}
+                  isActive={isLoading}
+                />
+              )}
+            </div>
+
+            <div className="w-full">
+              {result ? (
+                <ResultDisplay result={result} />
+              ) : (
+                <Card className="h-full min-h-[420px] w-full border-dashed border-border/60 bg-card/30">
+                  <div className="flex h-full flex-col items-center justify-center space-y-4 p-8 text-center">
+                    <div className="rounded-full bg-gradient-to-br from-primary/20 via-secondary/20 to-accent/20 p-4">
+                      <Sparkles className="h-10 w-10 text-primary" />
+                    </div>
+                    <div className="space-y-2">
+                      <h3 className="text-xl font-semibold">Prévisualisation en attente</h3>
+                      <p className="text-muted-foreground">
+                        Lancez une génération pour afficher ici l'aperçu ou le code correspondant à votre création.
+                      </p>
+                    </div>
+                  </div>
+                </Card>
+              )}
+            </div>
           </div>
-          
-          <ResultDisplay result={result} />
         </section>
       )}
     </div>
