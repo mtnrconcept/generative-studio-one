@@ -35,11 +35,11 @@ const CodeViewer = ({ code, category }: CodeViewerProps) => {
       case 'game':
         zip.file("index.html", code);
         break;
-      case 'app':
+      case 'app': {
         // Extraire le JSX et le CSS si possible
         const jsxMatch = code.match(/<!-- App\.jsx -->([\s\S]*?)<!-- App\.css -->/);
         const cssMatch = code.match(/<!-- App\.css -->([\s\S]*?)$/);
-        
+
         if (jsxMatch) {
           zip.file("App.jsx", jsxMatch[1].trim());
         }
@@ -49,7 +49,7 @@ const CodeViewer = ({ code, category }: CodeViewerProps) => {
         if (!jsxMatch && !cssMatch) {
           zip.file("App.jsx", code);
         }
-        
+
         // Ajouter le package.json
         zip.file("package.json", JSON.stringify({
           name: "generated-app",
@@ -60,6 +60,7 @@ const CodeViewer = ({ code, category }: CodeViewerProps) => {
           }
         }, null, 2));
         break;
+      }
       case 'agent':
         zip.file("agent.py", code);
         zip.file("requirements.txt", "requests\npython-dotenv");
@@ -117,27 +118,31 @@ const CodeViewer = ({ code, category }: CodeViewerProps) => {
 
       {viewMode === 'code' ? (
         <div className="rounded-lg overflow-hidden border border-border/50">
-          <SyntaxHighlighter
-            language={getLanguage()}
-            style={vscDarkPlus}
-            customStyle={{
-              margin: 0,
-              maxHeight: '500px',
-              fontSize: '14px'
-            }}
-            showLineNumbers
-          >
-            {code}
-          </SyntaxHighlighter>
+          <div className="resize-y overflow-auto" style={{ minHeight: '280px', maxHeight: '80vh' }}>
+            <SyntaxHighlighter
+              language={getLanguage()}
+              style={vscDarkPlus}
+              customStyle={{
+                margin: 0,
+                background: 'transparent',
+                fontSize: '14px'
+              }}
+              showLineNumbers
+            >
+              {code}
+            </SyntaxHighlighter>
+          </div>
         </div>
       ) : (
         <div className="rounded-lg overflow-hidden border border-border/50 bg-white">
-          <iframe
-            srcDoc={code}
-            className="w-full h-[500px]"
-            title="Preview"
-            sandbox="allow-scripts allow-same-origin"
-          />
+          <div className="resize-y overflow-auto" style={{ minHeight: '280px', maxHeight: '80vh' }}>
+            <iframe
+              srcDoc={code}
+              className="h-full min-h-[280px] w-full"
+              title="Preview"
+              sandbox="allow-scripts allow-same-origin"
+            />
+          </div>
         </div>
       )}
     </div>

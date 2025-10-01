@@ -244,13 +244,18 @@ const ReactProjectViewer = ({ files, instructions, projectName }: ReactProjectVi
             Télécharger
           </Button>
         </div>
-        <ScrollArea className="h-[320px]">
-          <div className="space-y-1 px-2 py-3">
-            {fileTree.length ? renderTree(fileTree) : (
-              <p className="px-3 text-sm text-muted-foreground">Aucun fichier disponible.</p>
-            )}
-          </div>
-        </ScrollArea>
+        <div
+          className="resize-y overflow-hidden"
+          style={{ minHeight: '240px', maxHeight: '70vh', height: '320px' }}
+        >
+          <ScrollArea className="h-full">
+            <div className="space-y-1 px-2 py-3">
+              {fileTree.length ? renderTree(fileTree) : (
+                <p className="px-3 text-sm text-muted-foreground">Aucun fichier disponible.</p>
+              )}
+            </div>
+          </ScrollArea>
+        </div>
       </div>
 
       <div className="space-y-4">
@@ -269,7 +274,10 @@ const ReactProjectViewer = ({ files, instructions, projectName }: ReactProjectVi
               {activeFile || 'Sélectionnez un fichier pour afficher son contenu'}
             </p>
           </div>
-          <div className="max-h-[420px] overflow-auto">
+          <div
+            className="resize-y overflow-auto"
+            style={{ minHeight: '320px', maxHeight: '80vh' }}
+          >
             {activeFileContent ? (
               <SyntaxHighlighter
                 language={activeLanguage}
