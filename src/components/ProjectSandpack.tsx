@@ -9,8 +9,9 @@ import {
 import type { GeneratedFile } from "@/types/result";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Code2, Columns, Loader2, Monitor, PanelRightOpen } from "lucide-react";
+import { Code2, Columns, Loader2, Maximize2, Monitor, PanelRightOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
+import FullscreenPreviewDialog from "@/components/FullscreenPreviewDialog";
 
 interface ProjectSandpackProps {
   files: GeneratedFile[];
@@ -50,6 +51,7 @@ const ProjectSandpack = ({
   }, [files]);
 
   const [viewMode, setViewMode] = useState<"split" | "code" | "preview">("split");
+  const [isFullscreenOpen, setIsFullscreenOpen] = useState(false);
 
   const showCode = viewMode !== "preview";
   const showPreview = viewMode !== "code";
@@ -75,6 +77,16 @@ const ProjectSandpack = ({
               Afficher l'arborescence
             </Button>
           )}
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-2"
+            onClick={() => setIsFullscreenOpen(true)}
+            disabled={!sandpackFiles}
+          >
+            <Maximize2 className="h-4 w-4" />
+            Plein écran
+          </Button>
           <Button
             size="sm"
             variant={viewMode === "split" ? "default" : "outline"}
@@ -125,6 +137,13 @@ const ProjectSandpack = ({
           </div>
         )}
       </div>
+      <FullscreenPreviewDialog
+        open={isFullscreenOpen}
+        onOpenChange={setIsFullscreenOpen}
+        files={files}
+        activeFile={activeFile}
+        isGenerating={isGenerating}
+      />
     </div>
   );
 };
