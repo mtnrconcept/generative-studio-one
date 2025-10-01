@@ -10,6 +10,7 @@ import GenerationProgress from "@/components/GenerationProgress";
 import type { GeneratedProject } from "@/lib/project-generator";
 import { createProjectPlan, generateProjectFromPrompt } from "@/lib/project-generator";
 import type { GenerationPlan, PlanExecutionStep, PlanStepStatus } from "@/types/plan";
+import { cn } from "@/lib/utils";
 
 export type SiteAppMode = "website" | "application";
 
@@ -100,6 +101,7 @@ const SiteAppGenerator = ({ mode }: SiteAppGeneratorProps) => {
   const [statusHistory, setStatusHistory] = useState<string[]>([]);
   const [statusMessage, setStatusMessage] = useState<string>("");
   const timersRef = useRef<number[]>([]);
+  const [isFileTreeCollapsed, setIsFileTreeCollapsed] = useState(false);
 
   const clearTimers = useCallback(() => {
     timersRef.current.forEach((identifier) => window.clearTimeout(identifier));
@@ -113,6 +115,7 @@ const SiteAppGenerator = ({ mode }: SiteAppGeneratorProps) => {
     setExecutionSteps([]);
     setStatusHistory([]);
     setStatusMessage("");
+    setIsFileTreeCollapsed(false);
   }, [clearTimers]);
 
   const resetWorkflow = useCallback(() => {
@@ -288,7 +291,14 @@ const SiteAppGenerator = ({ mode }: SiteAppGeneratorProps) => {
 
   return (
     <div className="flex h-full w-full bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
-      <div className="grid h-full w-full grid-cols-1 bg-background/60 max-lg:gap-6 max-lg:overflow-y-auto lg:grid-cols-[minmax(260px,320px)_minmax(260px,360px)_1fr] lg:overflow-hidden">
+      <div
+        className={cn(
+          "grid h-full w-full grid-cols-1 bg-background/60 max-lg:gap-6 max-lg:overflow-y-auto lg:overflow-hidden",
+          isFileTreeCollapsed
+            ? "lg:grid-cols-[minmax(260px,320px)_0px_1fr]"
+            : "lg:grid-cols-[minmax(260px,320px)_minmax(260px,360px)_1fr]",
+        )}
+      >
         <PromptSidebar
           prompt={prompt}
           onPromptChange={setPrompt}
@@ -308,32 +318,42 @@ const SiteAppGenerator = ({ mode }: SiteAppGeneratorProps) => {
           exportLabel="Télécharger le projet"
         />
 
-        <div className="flex h-full flex-col border-t border-border/50 bg-background/60 max-lg:border-l-0 max-lg:border-r-0 lg:border-t-0 lg:border-r">
-          {phase === "planning" && plan ? (
-            <GenerationPlanView
-              plan={plan}
-              onConfirm={handleConfirmPlan}
-              onEdit={handleEditPlan}
-              confirmLabel={mode === "website" ? "Lancer la génération du site" : "Lancer la génération de l'application"}
-              isConfirming={isGenerating && phase === "planning"}
-            />
-          ) : (
-            <div className="flex h-full flex-col overflow-hidden">
-              <GenerationProgress
-                steps={executionSteps}
-                statusMessage={statusMessage}
-                history={statusHistory}
-                phase={phase}
+        {!isFileTreeCollapsed && (
+          <div className="flex h-full flex-col border-t border-border/50 bg-background/60 max-lg:border-l-0 max-lg:border-r-0 lg:border-t-0 lg:border-r">
+            {phase === "planning" && plan ? (
+              <GenerationPlanView
+                plan={plan}
+                onConfirm={handleConfirmPlan}
+                onEdit={handleEditPlan}
+                confirmLabel={mode === "website" ? "Lancer la génération du site" : "Lancer la génération de l'application"}
+                isConfirming={isGenerating && phase === "planning"}
               />
-              <ProjectFileTree files={projectFiles} activeFile={activeFile} onSelect={setActiveFile} />
-            </div>
-          )}
-        </div>
+            ) : (
+              <div className="flex h-full flex-col overflow-hidden">
+                <GenerationProgress
+                  steps={executionSteps}
+                  statusMessage={statusMessage}
+                  history={statusHistory}
+                  phase={phase}
+                />
+                <ProjectFileTree
+                  files={projectFiles}
+                  activeFile={activeFile}
+                  onSelect={setActiveFile}
+                  onCollapse={() => setIsFileTreeCollapsed(true)}
+                />
+              </div>
+            )}
+          </div>
+        )}
 
         <ProjectSandpack
           files={projectFiles}
           activeFile={activeFile}
           isGenerating={phase === "generating"}
+          className={cn("lg:col-span-1", isFileTreeCollapsed && "lg:col-span-2")}
+          isFileTreeCollapsed={isFileTreeCollapsed}
+          onExpandFileTree={() => setIsFileTreeCollapsed(false)}
         />
       </div>
     </div>
