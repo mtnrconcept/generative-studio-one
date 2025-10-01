@@ -14,6 +14,7 @@ import agentIcon from "@/assets/agent-icon.png";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Sparkles } from "lucide-react";
+import type { GeneratedResult } from "@/types/result";
 
 const loadingSteps = [
   "Analyse du prompt et compréhension du contexte",
@@ -65,13 +66,9 @@ const Index = () => {
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
   const [wasLoading, setWasLoading] = useState(false);
-  const [result, setResult] = useState<{
-    type: string;
-    category: string;
-    content: string;
-    preview?: string;
-    code?: string;
-  } | null>(null);
+  const [result, setResult] = useState<GeneratedResult | null>(null);
+  const [resultHistory, setResultHistory] = useState<GeneratedResult[]>([]);
+  const [lastPrompt, setLastPrompt] = useState("");
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [loadingMessage, setLoadingMessage] = useState("");
   const [loadingHistory, setLoadingHistory] = useState<string[]>([]);
@@ -79,6 +76,8 @@ const Index = () => {
   const handleCategorySelect = (categoryId: string) => {
     setSelectedCategory(categoryId);
     setResult(null);
+    setResultHistory([]);
+    setLastPrompt("");
   };
 
   const handlePromptSubmit = async (prompt: string) => {
@@ -98,13 +97,19 @@ const Index = () => {
 
       if (error) throw error;
 
-      setResult({
+      const generatedResult: GeneratedResult = {
         type: data.type || selectedCategory,
         category: data.category || selectedCategory,
         content: data.content,
         preview: data.preview,
         code: data.code,
-      });
+        prompt,
+        version: 1,
+      };
+
+      setLastPrompt(prompt);
+      setResult(generatedResult);
+      setResultHistory([generatedResult]);
 
       toast.success("Création réussie !");
     } catch (error) {
@@ -117,6 +122,63 @@ const Index = () => {
         }
 
         return [...prev, "Une erreur est survenue lors de la génération"];
+      });
+      setLoadingProgress(100);
+      setWasLoading(false);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleRefineSubmit = async (modification: string) => {
+    if (!result || !modification.trim()) {
+      return;
+    }
+
+    setWasLoading(true);
+    setLoadingProgress(0);
+    setLoadingMessage("");
+    setLoadingHistory([]);
+    setIsLoading(true);
+
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-content", {
+        body: {
+          prompt: lastPrompt,
+          category: selectedCategory,
+          modification,
+          existingContent: result.code || result.content,
+        },
+      });
+
+      if (error) throw error;
+
+      const version = resultHistory.length + 1;
+      const refinedResult: GeneratedResult = {
+        type: data.type || selectedCategory,
+        category: data.category || selectedCategory,
+        content: data.content,
+        preview: data.preview,
+        code: data.code,
+        prompt: lastPrompt,
+        version,
+        modification,
+      };
+
+      setResult(refinedResult);
+      setResultHistory((prev) => [...prev, refinedResult]);
+
+      toast.success("Révision générée !");
+    } catch (error) {
+      console.error("Erreur lors de la révision:", error);
+      toast.error("Impossible d'appliquer la modification");
+      setLoadingMessage("Une erreur est survenue lors de la révision");
+      setLoadingHistory((prev) => {
+        if (prev[prev.length - 1] === "Une erreur est survenue lors de la révision") {
+          return prev;
+        }
+
+        return [...prev, "Une erreur est survenue lors de la révision"];
       });
       setLoadingProgress(100);
       setWasLoading(false);
@@ -221,6 +283,8 @@ const Index = () => {
               onClick={() => {
                 setSelectedCategory("");
                 setResult(null);
+                setResultHistory([]);
+                setLastPrompt("");
                 setLoadingHistory([]);
                 setLoadingMessage("");
                 setLoadingProgress(0);
@@ -243,8 +307,11 @@ const Index = () => {
               <div className="rounded-xl border border-border/60 bg-card/50 backdrop-blur-sm p-6">
                 <PromptInput
                   onSubmit={handlePromptSubmit}
+                  onRefineSubmit={handleRefineSubmit}
                   isLoading={isLoading}
                   selectedCategory={categories.find((c) => c.id === selectedCategory)?.title || ""}
+                  hasResult={!!result}
+                  history={resultHistory}
                 />
               </div>
 
@@ -260,7 +327,7 @@ const Index = () => {
 
             <div className="w-full">
               {result ? (
-                <ResultDisplay result={result} />
+                <ResultDisplay result={result} history={resultHistory} />
               ) : (
                 <Card className="h-full min-h-[420px] w-full border-dashed border-border/60 bg-card/30">
                   <div className="flex h-full flex-col items-center justify-center space-y-4 p-8 text-center">
