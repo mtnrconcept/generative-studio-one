@@ -1,18 +1,23 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import JSZip from "jszip";
 import { toast } from "sonner";
 
 import PromptSidebar from "@/components/PromptSidebar";
 import ProjectFileTree from "@/components/ProjectFileTree";
 import ProjectSandpack from "@/components/ProjectSandpack";
+import GenerationPlanView from "@/components/GenerationPlanView";
+import GenerationProgress from "@/components/GenerationProgress";
 import type { GeneratedProject } from "@/lib/project-generator";
-import { generateProjectFromPrompt } from "@/lib/project-generator";
+import { createProjectPlan, generateProjectFromPrompt } from "@/lib/project-generator";
+import type { GenerationPlan, PlanExecutionStep, PlanStepStatus } from "@/types/plan";
 
 export type SiteAppMode = "website" | "application";
 
 interface SiteAppGeneratorProps {
   mode: SiteAppMode;
 }
+
+type Phase = "idle" | "planning" | "generating" | "complete";
 
 const DEFAULT_PROMPTS: Record<SiteAppMode, string> = {
   website: [
@@ -47,14 +52,39 @@ const LABELS: Record<SiteAppMode, { title: string; description: string; generate
     title: "Générateur de site web",
     description:
       "Décris la landing page ou le site marketing que tu veux obtenir. Utilise <code>Nom: ...</code> pour définir le nom du projet.",
-    generate: "Générer le site",
+    generate: "Générer le plan",
   },
   application: {
     title: "Générateur d'application",
     description:
       "Décris l'application React que tu souhaites prototyper. Mentionne <code>Nom: ...</code> pour personnaliser le dossier.",
-    generate: "Générer l'application",
+    generate: "Générer le plan",
   },
+};
+
+const createExecutionSteps = (plan: GenerationPlan): PlanExecutionStep[] => {
+  const mapped = plan.sections.flatMap((section) =>
+    section.steps.map((step) => ({
+      ...step,
+      section: section.title,
+      status: "pending" as PlanStepStatus,
+    })),
+  );
+
+  if (mapped.length === 0) {
+    return [
+      {
+        id: "initialisation",
+        title: "Initialiser le projet",
+        description: "Préparer la structure Vite et les fichiers React de base.",
+        deliverable: "Projet React opérationnel",
+        section: plan.title,
+        status: "pending",
+      },
+    ];
+  }
+
+  return mapped;
 };
 
 const SiteAppGenerator = ({ mode }: SiteAppGeneratorProps) => {
@@ -64,16 +94,43 @@ const SiteAppGenerator = ({ mode }: SiteAppGeneratorProps) => {
   const [activeFile, setActiveFile] = useState<string | undefined>();
   const [isGenerating, setIsGenerating] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [phase, setPhase] = useState<Phase>("idle");
+  const [plan, setPlan] = useState<GenerationPlan | null>(null);
+  const [executionSteps, setExecutionSteps] = useState<PlanExecutionStep[]>([]);
+  const [statusHistory, setStatusHistory] = useState<string[]>([]);
+  const [statusMessage, setStatusMessage] = useState<string>("");
+  const timersRef = useRef<number[]>([]);
+
+  const clearTimers = useCallback(() => {
+    timersRef.current.forEach((identifier) => window.clearTimeout(identifier));
+    timersRef.current = [];
+  }, []);
+
+  const clearGeneration = useCallback(() => {
+    clearTimers();
+    setProject(null);
+    setActiveFile(undefined);
+    setExecutionSteps([]);
+    setStatusHistory([]);
+    setStatusMessage("");
+  }, [clearTimers]);
+
+  const resetWorkflow = useCallback(() => {
+    clearGeneration();
+    setPlan(null);
+    setPhase("idle");
+  }, [clearGeneration]);
 
   useEffect(() => {
     setPrompt(defaultPrompt);
-    setProject(null);
-    setActiveFile(undefined);
-  }, [defaultPrompt]);
+    resetWorkflow();
+  }, [defaultPrompt, resetWorkflow]);
+
+  useEffect(() => () => clearTimers(), [clearTimers]);
 
   const projectFiles = useMemo(() => project?.files ?? [], [project]);
 
-  const handleGenerate = useCallback(() => {
+  const handleGeneratePlan = useCallback(() => {
     if (!prompt.trim()) {
       toast.error("Ajoute quelques instructions avant de lancer la génération.");
       return;
@@ -81,26 +138,111 @@ const SiteAppGenerator = ({ mode }: SiteAppGeneratorProps) => {
 
     try {
       setIsGenerating(true);
-      const generated = generateProjectFromPrompt(prompt, mode);
-      setProject(generated);
-
-      const preferredFile = generated.files.find(
-        (file) => file.path === "src/App.tsx" || file.path === "src/main.tsx",
-      );
-      setActiveFile(preferredFile?.path ?? generated.files[0]?.path);
-
-      toast.success(
-        mode === "website"
-          ? "Projet de site React + Vite généré !"
-          : "Prototype d'application React généré !",
-      );
+      clearGeneration();
+      const generatedPlan = createProjectPlan(prompt, mode);
+      setPlan(generatedPlan);
+      setPhase("planning");
+      setStatusMessage("Plan généré · vérifie les étapes avant de lancer la génération.");
+      setStatusHistory(["Plan proposé à partir du brief"]);
+      toast.success("Plan d'action généré !");
     } catch (error) {
-      console.error("Erreur pendant la génération", error);
-      toast.error("Impossible de générer le projet. Réessaie avec un prompt différent.");
+      console.error("Erreur pendant la génération du plan", error);
+      toast.error("Impossible de créer un plan pour ce brief. Réessaie avec plus de détails.");
     } finally {
       setIsGenerating(false);
     }
-  }, [mode, prompt]);
+  }, [clearGeneration, mode, prompt]);
+
+  const handleConfirmPlan = useCallback(() => {
+    if (!plan) return;
+
+    try {
+      setIsGenerating(true);
+      setPhase("generating");
+      const steps = createExecutionSteps(plan);
+      setExecutionSteps(steps);
+      setStatusHistory((previous) => [...previous, "Plan validé · lancement de la génération"]);
+      setStatusMessage("Initialisation du projet");
+
+      const generated = generateProjectFromPrompt(prompt, mode);
+      setProject({ ...generated, files: [] });
+      setActiveFile(undefined);
+
+      clearTimers();
+
+      const filesPerStep = Math.max(1, Math.ceil(generated.files.length / steps.length));
+      let fileIndex = 0;
+
+      steps.forEach((step, index) => {
+        const startDelay = index * 1200;
+        const duration = 900;
+
+        const startTimer = window.setTimeout(() => {
+          setExecutionSteps((previous) =>
+            previous.map((entry, entryIndex) => {
+              if (entryIndex < index) {
+                return { ...entry, status: "done" };
+              }
+              if (entryIndex === index) {
+                return { ...entry, status: "active" };
+              }
+              return entry;
+            }),
+          );
+          setStatusMessage(`${step.section} · ${step.title}`);
+          setStatusHistory((previous) => [...previous, `▶️ ${step.title}`]);
+        }, startDelay);
+
+        const endTimer = window.setTimeout(() => {
+          setExecutionSteps((previous) =>
+            previous.map((entry, entryIndex) =>
+              entryIndex === index ? { ...entry, status: "done" } : entry,
+            ),
+          );
+
+          const chunk = generated.files.slice(fileIndex, fileIndex + filesPerStep);
+          fileIndex += chunk.length;
+
+          if (chunk.length) {
+            setProject((previous) =>
+              previous ? { ...previous, files: [...previous.files, ...chunk] } : previous,
+            );
+            setActiveFile((current) => current ?? chunk[0].path);
+          }
+
+          setStatusHistory((previous) => [...previous, `✅ ${step.title}`]);
+
+          if (index === steps.length - 1) {
+            const remaining = generated.files.slice(fileIndex);
+            if (remaining.length) {
+              setProject((previous) =>
+                previous ? { ...previous, files: [...previous.files, ...remaining] } : previous,
+              );
+            }
+
+            setProject(generated);
+            setActiveFile((current) => current ?? generated.files[0]?.path);
+            setPhase("complete");
+            setIsGenerating(false);
+            setStatusMessage("Génération terminée");
+            clearTimers();
+            toast.success(
+              mode === "website"
+                ? "Projet de site React + Vite généré !"
+                : "Prototype d'application React généré !",
+            );
+          }
+        }, startDelay + duration);
+
+        timersRef.current.push(startTimer, endTimer);
+      });
+    } catch (error) {
+      console.error("Erreur pendant la génération du projet", error);
+      toast.error("Impossible de générer le projet. Réessaie avec un prompt différent.");
+      setIsGenerating(false);
+      setPhase("planning");
+    }
+  }, [clearTimers, mode, plan, prompt]);
 
   const handleExport = useCallback(async () => {
     if (!project) return;
@@ -137,13 +279,20 @@ const SiteAppGenerator = ({ mode }: SiteAppGeneratorProps) => {
     }
   }, [project]);
 
+  const handleEditPlan = useCallback(() => {
+    resetWorkflow();
+  }, [resetWorkflow]);
+
+  const generateLabel =
+    phase === "planning" ? "Régénérer le plan" : LABELS[mode].generate;
+
   return (
     <div className="flex h-full w-full bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
-      <div className="grid h-full w-full grid-cols-[minmax(280px,340px)_minmax(240px,280px)_1fr] bg-background/60">
+      <div className="grid h-full w-full grid-cols-[minmax(280px,340px)_minmax(280px,360px)_1fr] bg-background/60">
         <PromptSidebar
           prompt={prompt}
           onPromptChange={setPrompt}
-          onGenerate={handleGenerate}
+          onGenerate={handleGeneratePlan}
           onExport={handleExport}
           isGenerating={isGenerating}
           isExporting={isExporting}
@@ -155,13 +304,33 @@ const SiteAppGenerator = ({ mode }: SiteAppGeneratorProps) => {
           promptLabel="Brief"
           promptPlaceholder={defaultPrompt}
           hints={HINTS[mode]}
-          generateLabel={LABELS[mode].generate}
+          generateLabel={generateLabel}
           exportLabel="Télécharger le projet"
         />
 
-        <ProjectFileTree files={projectFiles} activeFile={activeFile} onSelect={setActiveFile} />
+        <div className="flex h-full flex-col border-r border-border/50 bg-background/60">
+          {phase === "planning" && plan ? (
+            <GenerationPlanView
+              plan={plan}
+              onConfirm={handleConfirmPlan}
+              onEdit={handleEditPlan}
+              confirmLabel={mode === "website" ? "Lancer la génération du site" : "Lancer la génération de l'application"}
+              isConfirming={isGenerating && phase === "planning"}
+            />
+          ) : (
+            <div className="flex h-full flex-col overflow-hidden">
+              <GenerationProgress
+                steps={executionSteps}
+                statusMessage={statusMessage}
+                history={statusHistory}
+                phase={phase}
+              />
+              <ProjectFileTree files={projectFiles} activeFile={activeFile} onSelect={setActiveFile} />
+            </div>
+          )}
+        </div>
 
-        <ProjectSandpack files={projectFiles} activeFile={activeFile} />
+        <ProjectSandpack files={projectFiles} activeFile={activeFile} isGenerating={phase === "generating"} />
       </div>
     </div>
   );
