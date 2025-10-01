@@ -15,6 +15,13 @@ interface PromptSidebarProps {
   canExport: boolean;
   projectName?: string;
   instructions?: string;
+  title?: string;
+  description?: string;
+  promptLabel?: string;
+  promptPlaceholder?: string;
+  hints?: string[];
+  generateLabel?: string;
+  exportLabel?: string;
 }
 
 const PromptSidebar = ({
@@ -27,15 +34,23 @@ const PromptSidebar = ({
   canExport,
   projectName,
   instructions,
+  title = "Générateur",
+  description = "Décris le site ou l'application que tu souhaites. Utilise <code>Nom: ...</code> pour nommer le projet.",
+  promptLabel = "Prompt",
+  promptPlaceholder = "Landing page\nNom: Mon Super Site\nBouton vert",
+  hints,
+  generateLabel = "Générer le projet",
+  exportLabel = "Exporter en .zip",
 }: PromptSidebarProps) => {
-  const hints = useMemo(
-    () => [
-      "Landing page moderne",
-      "Nom: Mon Super Site",
-      "Ajoute un bouton vert",
-      "Page d'accueil minimaliste",
-    ],
-    [],
+  const suggestions = useMemo(
+    () =>
+      hints ?? [
+        "Landing page moderne",
+        "Nom: Mon Super Site",
+        "Ajoute un bouton vert",
+        "Page d'accueil minimaliste",
+      ],
+    [hints],
   );
 
   return (
@@ -43,27 +58,27 @@ const PromptSidebar = ({
       <div className="border-b border-border/40 px-5 py-4">
         <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
           <Sparkles className="h-4 w-4" />
-          Générateur
+          {title}
         </div>
         <p className="mt-2 text-sm text-muted-foreground/80">
-          Décris le site ou l'application que tu souhaites. Utilise <code>Nom: ...</code> pour nommer le projet.
+          <span dangerouslySetInnerHTML={{ __html: description }} />
         </p>
       </div>
 
       <div className="flex-1 space-y-5 overflow-hidden p-5">
         <div className="space-y-3">
           <label htmlFor="prompt" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Prompt
+            {promptLabel}
           </label>
           <Textarea
             id="prompt"
             value={prompt}
             onChange={(event) => onPromptChange(event.target.value)}
             className="min-h-[220px] resize-none"
-            placeholder={"Landing page\nNom: Mon Super Site\nBouton vert"}
+            placeholder={promptPlaceholder}
           />
           <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-            {hints.map((hint) => (
+            {suggestions.map((hint) => (
               <span
                 key={hint}
                 className="rounded-full border border-border/60 px-3 py-1"
@@ -76,7 +91,7 @@ const PromptSidebar = ({
 
         <div className="flex flex-col gap-2">
           <Button onClick={onGenerate} disabled={isGenerating} className="w-full">
-            {isGenerating ? "Génération…" : "Générer le projet"}
+            {isGenerating ? "Génération…" : generateLabel}
           </Button>
           <Button
             onClick={onExport}
@@ -85,7 +100,7 @@ const PromptSidebar = ({
             className="w-full gap-2"
           >
             <Download className="h-4 w-4" />
-            {isExporting ? "Export en cours…" : "Exporter en .zip"}
+            {isExporting ? "Export en cours…" : exportLabel}
           </Button>
         </div>
 
