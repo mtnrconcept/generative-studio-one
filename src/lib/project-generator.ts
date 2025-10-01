@@ -2372,13 +2372,61 @@ export default defineConfig({
   }
 });
 
+const toSegments = (value: string) => value.split("/").filter(Boolean);
+
+const resolveRelativeImport = (fromPath: string, toPath: string) => {
+  const fromSegments = toSegments(fromPath);
+  fromSegments.pop();
+
+  const toSegmentsArray = toSegments(toPath);
+
+  let sharedIndex = 0;
+  while (
+    sharedIndex < fromSegments.length &&
+    sharedIndex < toSegmentsArray.length &&
+    fromSegments[sharedIndex] === toSegmentsArray[sharedIndex]
+  ) {
+    sharedIndex += 1;
+  }
+
+  const upwardMoves = fromSegments.length - sharedIndex;
+  const relativeParts = [
+    ...Array.from({ length: upwardMoves }, () => ".."),
+    ...toSegmentsArray.slice(sharedIndex),
+  ];
+
+  if (!relativeParts.length) {
+    return ".";
+  }
+
+  const relativePath = relativeParts.join("/");
+  return relativePath.startsWith("..") ? relativePath : `./${relativePath}`;
+};
+
+const replaceAliasImports = (filePath: string, code: string) => {
+  if (!code.includes("@/")) {
+    return code;
+  }
+
+  const normalizedPath = normalizePath(filePath).replace(/^\//, "");
+
+  return code.replace(/(['"])@\/([^'"`]+)(['"])/g, (match, quoteStart, target, quoteEnd) => {
+    const resolved = resolveRelativeImport(normalizedPath, `src/${target}`);
+    return `${quoteStart}${resolved}${quoteEnd}`;
+  });
+};
+
 const mapToArray = (files: FileMap): GeneratedFile[] =>
   Object.entries(files)
     .filter(([, descriptor]) => !descriptor.hidden)
-    .map(([path, descriptor]) => ({
-      path: normalizePath(path).replace(/^\//, ""),
-      content: descriptor.code,
-    }))
+    .map(([path, descriptor]) => {
+      const normalizedPath = normalizePath(path).replace(/^\//, "");
+      const content = replaceAliasImports(normalizedPath, descriptor.code);
+      return {
+        path: normalizedPath,
+        content,
+      };
+    })
     .sort((a, b) => a.path.localeCompare(b.path));
 
 const extractProjectName = (prompt: string) => {
