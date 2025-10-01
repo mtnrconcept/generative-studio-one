@@ -2,6 +2,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Download, Sparkles } from "lucide-react";
 import CodeViewer from "./CodeViewer";
+import ReactProjectViewer from "./ReactProjectViewer";
 import type { GeneratedResult } from "@/types/result";
 
 interface ResultDisplayProps {
@@ -25,6 +26,16 @@ const renderResultContent = (entry: GeneratedResult) => {
     );
   }
 
+  if (entry.files && entry.files.length > 0) {
+    return (
+      <ReactProjectViewer
+        files={entry.files}
+        instructions={entry.instructions}
+        projectName={entry.projectName}
+      />
+    );
+  }
+
   if (entry.type === 'code' && entry.code) {
     return <CodeViewer code={entry.code} category={entry.category} />;
   }
@@ -45,7 +56,7 @@ const renderResultContent = (entry: GeneratedResult) => {
         <Sparkles className="h-12 w-12 text-primary" />
       </div>
       <p className="text-muted-foreground max-w-md">
-        {entry.content}
+        {entry.content || "Aucun contenu n'a été généré pour cette requête."}
       </p>
     </div>
   );
