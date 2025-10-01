@@ -1,3 +1,4 @@
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
@@ -12,113 +13,203 @@ serve(async (req) => {
 
   try {
     const { prompt, category } = await req.json();
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-
-    if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY non configurée');
-    }
-
     console.log(`Génération pour catégorie: ${category}, prompt: ${prompt}`);
 
-    // Adapter le prompt selon la catégorie
-    let systemPrompt = "";
+    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+    if (!LOVABLE_API_KEY) {
+      throw new Error('LOVABLE_API_KEY non configuré');
+    }
+
+    let systemPrompt = '';
     let useImageGeneration = false;
+    let responseFormat = 'text';
 
     switch (category) {
-      case "game":
-        systemPrompt = "Tu es un expert en conception de jeux vidéo. Fournis une description détaillée du concept de jeu, incluant le gameplay, les mécaniques, le style visuel et l'expérience utilisateur.";
-        break;
-      case "image":
-        systemPrompt = "Tu es un artiste IA. Génère une image basée sur la description de l'utilisateur.";
+      case 'image':
+        systemPrompt = "Générez une image de haute qualité basée sur la description de l'utilisateur. Soyez créatif et détaillé.";
         useImageGeneration = true;
         break;
-      case "music":
-        systemPrompt = "Tu es un compositeur de musique. Décris en détail la composition musicale, incluant le genre, l'ambiance, les instruments et la structure.";
+      
+      case 'website':
+        systemPrompt = `Tu es un expert en développement web. Génère un site web HTML/CSS/JavaScript complet et fonctionnel basé sur la demande de l'utilisateur.
+        
+IMPORTANT: Réponds UNIQUEMENT avec du code, sans markdown, sans explications. Structure ton code ainsi:
+
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mon Site</title>
+    <style>
+    /* Tout le CSS ici */
+    </style>
+</head>
+<body>
+    <!-- Contenu HTML -->
+    <script>
+    // Tout le JavaScript ici
+    </script>
+</body>
+</html>
+
+Crée un site moderne, responsive, et fonctionnel. N'ajoute aucun texte en dehors du code HTML.`;
+        responseFormat = 'code';
         break;
-      case "app":
-        systemPrompt = "Tu es un architecte logiciel. Fournis une architecture détaillée de l'application, incluant les fonctionnalités principales, l'interface utilisateur et les technologies recommandées.";
+      
+      case 'app':
+        systemPrompt = `Tu es un expert en développement d'applications web. Génère une application React complète et fonctionnelle.
+        
+IMPORTANT: Réponds UNIQUEMENT avec du code, sans markdown, sans explications. Structure comme suit:
+
+<!-- App.jsx -->
+import React, { useState } from 'react';
+import './App.css';
+
+function App() {
+  // Code React ici
+  return (
+    <div className="App">
+      {/* JSX */}
+    </div>
+  );
+}
+
+export default App;
+
+<!-- App.css -->
+/* Tous les styles ici */
+
+Crée une application moderne et interactive. Pas de texte en dehors du code.`;
+        responseFormat = 'code';
         break;
-      case "website":
-        systemPrompt = "Tu es un web designer. Décris en détail le concept du site web, incluant la structure, le design, les sections principales et l'expérience utilisateur.";
+      
+      case 'game':
+        systemPrompt = `Tu es un expert en développement de jeux HTML5. Génère un jeu complet et jouable.
+        
+IMPORTANT: Réponds UNIQUEMENT avec du code HTML/CSS/JavaScript, sans markdown, sans explications.
+
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Mon Jeu</title>
+    <style>
+    /* CSS du jeu */
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+    <script>
+    // Logique du jeu ici
+    </script>
+</body>
+</html>
+
+Crée un jeu fonctionnel et amusant. Pas d'explications, seulement du code.`;
+        responseFormat = 'code';
         break;
-      case "agent":
-        systemPrompt = "Tu es un expert en automatisation. Fournis un plan détaillé de l'agent d'automatisation, incluant ses capacités, ses actions, les déclencheurs et les intégrations.";
+      
+      case 'music':
+        systemPrompt = `Tu es un expert en composition musicale. Décris précisément comment créer la musique demandée:
+        - Genre et style musical
+        - Tempo (BPM)
+        - Tonalité
+        - Structure (intro, couplet, refrain, etc.)
+        - Instruments principaux et leur rôle
+        - Progression d'accords
+        - Ambiance et émotions
+        - Références musicales similaires
+        
+Sois très précis et technique pour qu'un musicien puisse recréer cette composition.`;
+        responseFormat = 'description';
         break;
+      
+      case 'agent':
+        systemPrompt = `Tu es un expert en automatisation et scripting. Génère un script d'automatisation complet.
+        
+IMPORTANT: Réponds UNIQUEMENT avec du code Python, sans markdown, sans explications.
+
+# agent.py
+import time
+import requests
+from datetime import datetime
+
+def main():
+    """Script d'automatisation"""
+    # Code Python ici
+    pass
+
+if __name__ == "__main__":
+    main()
+
+Crée un script fonctionnel et bien structuré. Pas de texte en dehors du code et des commentaires de code.`;
+        responseFormat = 'code';
+        break;
+      
       default:
-        systemPrompt = "Tu es un assistant créatif. Aide l'utilisateur à réaliser sa vision.";
+        systemPrompt = "Vous êtes un assistant IA créatif et précis.";
     }
 
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: useImageGeneration ? "google/gemini-2.5-flash-image-preview" : "google/gemini-2.5-flash",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: prompt }
+        ],
+        modalities: useImageGeneration ? ["image", "text"] : undefined
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Erreur API Lovable:', response.status, errorText);
+      throw new Error(`Erreur API: ${response.status}`);
+    }
+
+    const data = await response.json();
+    console.log('Réponse API reçue:', JSON.stringify(data).substring(0, 200));
+
+    let result;
     if (useImageGeneration) {
-      // Génération d'image avec google/gemini-2.5-flash-image-preview
-      const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'google/gemini-2.5-flash-image-preview',
-          messages: [
-            { role: 'user', content: prompt }
-          ],
-          modalities: ['image', 'text']
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Erreur API: ${response.status}`);
-      }
-
-      const data = await response.json();
       const imageUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-
-      return new Response(
-        JSON.stringify({
-          content: "Image générée avec succès",
-          preview: imageUrl
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    } else {
-      // Génération de texte avec google/gemini-2.5-flash
-      const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'google/gemini-2.5-flash',
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: prompt }
-          ],
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`Erreur API: ${response.status}`);
+      if (!imageUrl) {
+        throw new Error('Aucune image générée');
       }
-
-      const data = await response.json();
-      const content = data.choices?.[0]?.message?.content;
-
-      return new Response(
-        JSON.stringify({
-          content: content,
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      result = {
+        type: 'image',
+        category,
+        content: data.choices?.[0]?.message?.content || 'Image générée',
+        preview: imageUrl
+      };
+    } else {
+      const content = data.choices?.[0]?.message?.content || 'Contenu généré';
+      result = {
+        type: responseFormat,
+        category,
+        content: content,
+        code: responseFormat === 'code' ? content : undefined
+      };
     }
 
+    return new Response(JSON.stringify(result), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   } catch (error) {
-    console.error('Erreur:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Une erreur est survenue';
+    console.error('Erreur dans generate-content:', error);
     return new Response(
-      JSON.stringify({ error: errorMessage }),
-      { 
+      JSON.stringify({ 
+        error: error instanceof Error ? error.message : 'Erreur inconnue' 
+      }),
+      {
         status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }
     );
   }

@@ -56,8 +56,10 @@ const Index = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<{
     type: string;
+    category: string;
     content: string;
     preview?: string;
+    code?: string;
   } | null>(null);
 
   const handleCategorySelect = (categoryId: string) => {
@@ -79,9 +81,11 @@ const Index = () => {
       if (error) throw error;
 
       setResult({
-        type: selectedCategory,
+        type: data.type || selectedCategory,
+        category: data.category || selectedCategory,
         content: data.content,
         preview: data.preview,
+        code: data.code,
       });
 
       toast.success("Création réussie !");
