@@ -158,18 +158,22 @@ const Index = () => {
       </section>
 
       <Dialog open={Boolean(activeTool)} onOpenChange={handleDialogChange}>
-        <DialogContent className="max-w-[1200px] w-full max-h-[90vh] overflow-hidden border border-white/10 bg-slate-950/95 p-0 backdrop-blur-xl">
-          {activeTool && activeDetail && (
-            isBuilder ? (
-              <SiteAppGenerator key={activeTool} mode={activeTool as SiteAppMode} />
-            ) : (
-              <CreativeGenerator
-                key={activeTool}
-                tool={activeTool as CreativeTool}
-                description={activeDetail.dialogDescription}
-              />
-            )
-          )}
+        <DialogContent className="max-w-[1200px] w-full h-[90vh] border border-white/10 bg-slate-950/95 p-0 backdrop-blur-xl">
+          <div className="h-full overflow-y-auto">
+            <div className="h-full">
+              {activeTool && activeDetail && (
+                isBuilder ? (
+                  <SiteAppGenerator key={activeTool} mode={activeTool as SiteAppMode} />
+                ) : (
+                  <CreativeGenerator
+                    key={activeTool}
+                    tool={activeTool as CreativeTool}
+                    description={activeDetail.dialogDescription}
+                  />
+                )
+              )}
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
