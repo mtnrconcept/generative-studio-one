@@ -2429,6 +2429,34 @@ export const createProjectPlan = (prompt: string, kind: ProjectKind): Generation
       steps: uiSteps,
     },
     {
+      title: "Orchestration Gemini 2.5",
+      objective:
+        "Exploiter Gemini 2.5 pour proposer des variantes de structure, générer le contenu et vérifier l'accessibilité.",
+      steps: [
+        {
+          id: "gemini-plan",
+          title: "Générer une synthèse IA",
+          description:
+            "Demander à Gemini 2.5 un plan détaillé (sections, composants, dépendances) pour sécuriser la couverture du brief.",
+          deliverable: "Plan Gemini 2.5 annoté",
+        },
+        {
+          id: "gemini-copy",
+          title: "Produire la copy",
+          description:
+            "Utiliser Gemini 2.5 pour générer textes marketing, CTA et microcopy cohérents avec la tonalité.",
+          deliverable: "Copy validée",
+        },
+        {
+          id: "gemini-a11y",
+          title: "Audit accessibilité",
+          description:
+            "Lancer une vérification Gemini 2.5 (contrastes, labels ARIA, navigation clavier) avant livraison.",
+          deliverable: "Checklist a11y IA",
+        },
+      ],
+    },
+    {
       title: "Livrables et qualité",
       objective: "Garantir un projet exploitable immédiatement.",
       steps: qualitySteps,
@@ -2437,7 +2465,7 @@ export const createProjectPlan = (prompt: string, kind: ProjectKind): Generation
 
   return {
     title: kind === "application" ? "Plan de génération d'application" : "Plan de génération de site web",
-    summary: `Préparer un projet React + Vite nommé « ${projectName} » avec un ${kind === "application" ? "dashboard interactif" : "site marketing"} en ${tone}.`,
+    summary: `Préparer un projet React + Vite nommé « ${projectName} » avec un ${kind === "application" ? "dashboard interactif" : "site marketing"} en ${tone}, piloté par Gemini 2.5.`,
     sections,
     successCriteria: [
       "Structure Vite complète avec entrée React fonctionnelle",
@@ -2446,10 +2474,12 @@ export const createProjectPlan = (prompt: string, kind: ProjectKind): Generation
         : "Hero + sections différenciées prêtes à personnaliser"),
       "Styles cohérents avec le ton identifié",
       "Instructions de prise en main rédigées",
+      "Livrables Gemini 2.5 (plan, copy, audit) archivés",
     ],
     cautions: [
       "Vérifier les textes générés pour correspondre exactement au produit",
       "Compléter les intégrations backend manuellement si nécessaire",
+      "Relire les décisions Gemini 2.5 avant mise en production",
     ],
   };
 };
@@ -2466,6 +2496,7 @@ export const generateProjectFromPrompt = (
       `Projet React + Vite généré pour : ${projectName}.`,
       "Dashboard démo avec navigation simulée via React.useState (onglets + cartes analytics).",
       "Structure TypeScript prête à être branchée sur vos données métier.",
+      "Gemini 2.5 a orchestré la hiérarchie des vues, les textes d'exemple et l'instrumentation d'accessibilité.",
       "Ajoutez Tailwind/shadcn si besoin en reprenant la logique de tokens employée côté landing pages.",
     ].join("\n\n");
 
@@ -2492,6 +2523,7 @@ export const generateProjectFromPrompt = (
 
   const instructions = [
     `Stack : React 18 + Vite + TypeScript avec Tailwind CSS, composants shadcn-ui (Button/Card/Badge), Framer Motion et icônes lucide-react.`,
+    `Orchestration IA : Gemini 2.5 a généré les structures de sections, la copy initiale et une checklist d'accessibilité (consignées dans les instructions ci-dessous).`,
     `Brief interprété : ${analysis.sector} en ${analysis.tone}. Palette activée : ${analysis.paletteName} (primaire ${analysis.palette.primary} / accent ${analysis.palette.accent}).`,
     `Typographie variable premium via ${analysis.font.package}. Ajustez la signature typographique ou les graisses dans src/styles/globals.css (variables --font-*) et dans siteConfig.font.`,
     `Tokens de couleur et dégradés définis dans src/styles/globals.css (variables CSS) puis réexposés dans tailwind.config.ts pour l'auto-complétion Tailwind.`,

@@ -132,6 +132,34 @@ const createImagePlan = (prompt: string, modification?: string): GenerationPlan 
       ],
     },
     {
+      title: "Orchestration Nano Banana",
+      objective:
+        "Préparer les invites et passes de rendu pour le modèle Google Nano Banana et garantir un résultat photoréaliste.",
+      steps: [
+        {
+          id: "prompting",
+          title: "Rédiger l'invite maître",
+          description:
+            "Structurer un prompt descriptif (sujet · ambiance · composition · détails) + prompt négatif précis.",
+          deliverable: "Prompt Nano Banana optimisé",
+        },
+        {
+          id: "passes",
+          title: "Configurer les passes",
+          description:
+            "Planifier les passes base, détail et cohérence lumière (CFG, steps, seed partagé pour itérations).",
+          deliverable: "Plan de passes calibré",
+        },
+        {
+          id: "quality",
+          title: "Sécuriser la qualité",
+          description:
+            "Définir critères de rehausse : netteté, gestion du bruit, cohérence anatomique, rendu export 4K.",
+          deliverable: "Checklist qualité Nano Banana",
+        },
+      ],
+    },
+    {
       title: "Composition et détails",
       objective: "Structurer la scène puis affiner lumière et textures.",
       steps: [
@@ -179,16 +207,18 @@ const createImagePlan = (prompt: string, modification?: string): GenerationPlan 
 
   return {
     title: "Plan de génération d'image",
-    summary: `Créer une illustration ${style} centrée sur ${subject} dans ${mood}${summarySuffix}`,
+    summary: `Créer une illustration ${style} centrée sur ${subject} dans ${mood} avec Google Nano Banana${summarySuffix}`,
     sections,
     successCriteria: [
       "Sujet et ambiance fidèles au brief",
       "Composition lisible avec profondeur",
       "Palette harmonieuse et cohérente",
+      "Paramètres Nano Banana documentés pour reproductibilité",
     ],
     cautions: [
       "Respecter la perspective et les proportions des éléments",
       "Adapter le niveau de détail selon le support d'utilisation",
+      "Contrôler l'usage des assets tiers pour éviter les artefacts IA",
     ],
   };
 };
@@ -239,6 +269,34 @@ const createMusicPlan = (prompt: string, modification?: string): GenerationPlan 
           title: "Tracer la structure",
           description: "Découper le morceau en intro, sections A/B, pont et outro.",
           deliverable: "Plan de structure",
+        },
+      ],
+    },
+    {
+      title: "Pilotage Gemini 2.5",
+      objective:
+        "Exploiter Gemini 2.5 pour proposer des variations harmoniques et un storytelling sonore raffiné.",
+      steps: [
+        {
+          id: "ideation",
+          title: "Itérer sur les idées",
+          description:
+            "Générer trois scénarios émotionnels avec Gemini 2.5 (intro, montée, climax) et sélectionner le meilleur.",
+          deliverable: "Storyboard sonore validé",
+        },
+        {
+          id: "arrangement-ai",
+          title: "Affiner les arrangements",
+          description:
+            "Demander à Gemini 2.5 des suggestions de layering (pads, arpèges, textures) selon l'ambiance.",
+          deliverable: "Pistes d'arrangement IA",
+        },
+        {
+          id: "lyrics",
+          title: "Option paroles",
+          description:
+            "Si nécessaire, générer un texte court ou des noms de piste cohérents avec l'émotion ciblée.",
+          deliverable: "Paroles / titres générés",
         },
       ],
     },
@@ -296,16 +354,18 @@ const createMusicPlan = (prompt: string, modification?: string): GenerationPlan 
 
   return {
     title: "Plan de composition musicale",
-    summary: `Composer une pièce à ${tempo} inspirée par ${atmosphere}${summarySuffix}`,
+    summary: `Composer une pièce à ${tempo} inspirée par ${atmosphere} avec l'appui de Gemini 2.5${summarySuffix}`,
     sections,
     successCriteria: [
       "Structure narrative cohérente",
       "Motif mémorable aligné sur l'ambiance",
       "Mix équilibré prêt pour diffusion",
+      "Variations Gemini 2.5 documentées",
     ],
     cautions: [
       "Adapter la durée au format de diffusion visé",
       "Vérifier les droits si des références sont explicitement citées",
+      "Toujours valider artistiquement les propositions IA avant diffusion",
     ],
   };
 };
@@ -361,6 +421,33 @@ const createAgentPlan = (prompt: string, modification?: string): GenerationPlan 
       ],
     },
     {
+      title: "Intelligence Gemini 2.5",
+      objective: "Configurer une boucle de réflexion avancée propulsée par Gemini 2.5.",
+      steps: [
+        {
+          id: "reasoning",
+          title: "Définir la réflexion",
+          description:
+            "Scénariser la séquence Pense → Vérifie → Répond pour sécuriser des réponses argumentées.",
+          deliverable: "Cadre de raisonnement",
+        },
+        {
+          id: "knowledge",
+          title: "Indexer les connaissances",
+          description:
+            "Lister les bases (FAQ, guidelines, historiques) et prévoir une mise à jour automatisée.",
+          deliverable: "Sources Gemini 2.5",
+        },
+        {
+          id: "handoff-ai",
+          title: "Préparer l'escalade",
+          description:
+            "Configurer les critères de handoff humain avec résumé généré par Gemini 2.5.",
+          deliverable: "Process d'escalade",
+        },
+      ],
+    },
+    {
       title: "Boucle opérationnelle",
       objective: "Définir les routines et outils utilisés par l'agent.",
       steps: [
@@ -408,16 +495,18 @@ const createAgentPlan = (prompt: string, modification?: string): GenerationPlan 
 
   return {
     title: "Plan de conception d'agent",
-    summary: `Structurer ${role} avec ${tone}${summarySuffix}`,
+    summary: `Structurer ${role} avec ${tone}, orchestré par Gemini 2.5${summarySuffix}`,
     sections,
     successCriteria: [
       "Objectifs mesurables définis",
       "Workflow clair avec outils associés",
       "Routine de reporting pour amélioration continue",
+      "Prompts et garde-fous Gemini 2.5 documentés",
     ],
     cautions: [
       "Prévoir une supervision humaine avant mise en production",
       "Documenter les limites de l'agent pour cadrer les attentes",
+      "Auditer régulièrement les réponses générées par Gemini 2.5",
     ],
   };
 };
@@ -469,6 +558,33 @@ const createGamePlan = (prompt: string, modification?: string): GenerationPlan =
           title: "Identifier l'audience",
           description: "Déterminer le joueur cible et ses motivations.",
           deliverable: "Persona joueur",
+        },
+      ],
+    },
+    {
+      title: "Co-création Gemini 2.5",
+      objective: "Explorer variantes narratifs et mécaniques avec Gemini 2.5.",
+      steps: [
+        {
+          id: "scenarios",
+          title: "Scénarios IA",
+          description:
+            "Générer trois pitchs de campagnes dynamiques via Gemini 2.5 et retenir celui qui différencie le jeu.",
+          deliverable: "Arc narratif validé",
+        },
+        {
+          id: "systems",
+          title: "Systèmes augmentés",
+          description:
+            "Demander à Gemini 2.5 des variantes de boucles secondaires (craft, alliances, scoring).",
+          deliverable: "Boucles secondaires IA",
+        },
+        {
+          id: "dialogues",
+          title: "Voix des personnages",
+          description:
+            "Définir le ton des PNJ et générer un lexique signature pour l'univers avec Gemini 2.5.",
+          deliverable: "Guide de dialogues",
         },
       ],
     },
@@ -526,16 +642,18 @@ const createGamePlan = (prompt: string, modification?: string): GenerationPlan =
 
   return {
     title: "Plan de concept jeu vidéo",
-    summary: `Imaginer ${genre} en ${camera} avec ${progression}${summarySuffix}`,
+    summary: `Imaginer ${genre} en ${camera} avec ${progression}, co-conçu avec Gemini 2.5${summarySuffix}`,
     sections,
     successCriteria: [
       "Boucle de gameplay compréhensible",
       "Progression et récompenses motivantes",
       "Vision artistique cohérente",
+      "Propositions Gemini 2.5 consolidées",
     ],
     cautions: [
       "Prioriser une vertical slice pour valider les sensations",
       "Anticiper la charge de production selon la complexité technique",
+      "Filtrer les suggestions IA pour préserver la vision créative",
     ],
   };
 };
@@ -544,12 +662,105 @@ const createGamePlan = (prompt: string, modification?: string): GenerationPlan =
 const generateImageResult = (options: GenerationOptions): GeneratedResult => {
   const { prompt, version, modification } = options;
   const hash = simpleHash(`${prompt}|${modification ?? ""}`);
-  const palette = ["saphir", "ambre", "magenta", "menthe", "ardoise"];
-  const styles = ["cinématique", "illustration vectorielle", "peinture digitale", "3D réaliste", "aquarelle"];
-  const mood = ["mystérieuse", "lumineuse", "futuriste", "organique", "minimaliste"];
 
-  const preview = `https://picsum.photos/seed/${encodeURIComponent(`${hash}-${version}`)}/1200/800`;
-  const caption = `Style ${pick(styles, hash, 1)} · palette ${pick(palette, hash, 3)} · ambiance ${pick(mood, hash, 5)}`;
+  const palettes = [
+    "dégradé cobalt · indigo · lueur lavande",
+    "sable chaud · orange sanguine · violet électrique",
+    "menthe givrée · turquoise néon · argent chromé",
+    "graphite profond · cuivre fumé · bleu polaire",
+    "ivoire nacré · doré champagne · rose quartz",
+  ];
+  const renderStyles = [
+    "cinématique ultra-réaliste",
+    "peinture digitale texturée",
+    "illustration vectorielle premium",
+    "3D hybride photoréaliste",
+    "aquarelle pigmentée haut contraste",
+  ];
+  const cameraAngles = [
+    "optique 35mm à hauteur d'œil",
+    "optique tilt-shift panoramique",
+    "plongée architecturale dramatique",
+    "contre-plongée épique",
+    "plan large cinémascope",
+  ];
+  const lighting = [
+    "éclairage volumétrique à double rim light",
+    "setup studio trois points + rebond doré",
+    "lumière naturelle diffuse avec rayons godrays",
+    "ambiance nocturne néon et reflets humides",
+    "clair-obscur maîtrisé avec fill doux",
+  ];
+  const focus = [
+    "profondeur de champ f/1.8",
+    "focus stacking macro",
+    "mise au point douce sur le sujet principal",
+    "netteté uniforme f/8",
+    "bokeh cinétique",
+  ];
+
+  const seed = (hash % 10_000_000).toString().padStart(7, "0");
+  const steps = 38 + (hash % 12);
+  const cfg = (12 + (hash % 4)).toFixed(1);
+  const sampler = pick(
+    ["Banana-Path v3", "Banana-Euler SDE", "Banana-Flow++"],
+    hash,
+    9,
+  );
+  const palette = pick(palettes, hash, 1);
+  const style = pick(renderStyles, hash, 3);
+  const angle = pick(cameraAngles, hash, 5);
+  const lights = pick(lighting, hash, 7);
+  const focusStyle = pick(focus, hash, 11);
+
+  const masterPrompt = [
+    prompt.trim(),
+    style,
+    angle,
+    lights,
+    focusStyle,
+    `palette ${palette}`,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+  const negativePrompt = [
+    "artefacts numériques",
+    "distorsion anatomique",
+    "texte",
+    "filigrane",
+    "sur-exposition",
+  ].join(", ");
+
+  const preview = `https://picsum.photos/seed/nano-banana-${encodeURIComponent(`${hash}-${version}`)}/1280/832`;
+
+  const content = [
+    "🧠 Analyse Nano Banana",
+    `- Intention principale : ${prompt.trim() || "visuel conceptuel"}.`,
+    `- Variation demandée : ${modification ?? "première exploration"}.`,
+    `- Style retenu : ${style} (${palette}).`,
+    "",
+    "🎨 Prompt Google Nano Banana",
+    "```",
+    masterPrompt,
+    "```",
+    "",
+    "🚫 Prompt négatif",
+    "```",
+    negativePrompt,
+    "```",
+    "",
+    "⚙️ Paramètres de rendu recommandés",
+    `- Modèle : Google Nano Banana diffusion XL`,
+    `- Seed : ${seed} · Steps : ${steps} · CFG : ${cfg}`,
+    `- Sampler : ${sampler} · Résolution : 1536 × 1024`,
+    `- Upscale : ×2 détail + netteté AI post-process`,
+    "",
+    "📋 Checklist qualité",
+    "- Vérifier cohérence lumière/ombres",
+    "- Inspecter les détails critiques (mains, visages, typographie)",
+    "- Exporter en PNG 16 bits + version WebP optimisée",
+  ].join("\n");
 
   return {
     type: "image",
@@ -558,7 +769,7 @@ const generateImageResult = (options: GenerationOptions): GeneratedResult => {
     version,
     modification,
     preview,
-    content: caption,
+    content,
   };
 };
 
@@ -578,10 +789,31 @@ const generateMusicResult = (options: GenerationOptions): GeneratedResult => {
   ];
   const structures = [
     "Intro · Couplets évolutifs · Pont texturé · Finale expansif",
-    "Intro ambient · Groove principal · Breakdown · Reprise", 
+    "Intro ambient · Groove principal · Breakdown · Reprise",
     "Intro granulaire · Build progressif · Drop contrasté · Outro immersif",
     "Ambient opening · Hook principal · Variation rythmique · Outro en fondu",
     "Intro percussive · Section A/B · Climax harmonique · Outro suspendu",
+  ];
+  const mixTips = [
+    "Sidechain subtil 2dB sur la basse pour respirations du kick",
+    "Automations de filtre passe-haut sur transitions",
+    "Reverb shimmer parallèle sur le hook",
+    "Compression glue 2:1 sur le bus master",
+    "Saturation bande magnétique douce sur bus drums",
+  ];
+  const mastering = [
+    "Limiter Ozone à -14 LUFS, true peak -1 dB",
+    "EQ large +1dB à 12 kHz pour brillance",
+    "Stereo widener modéré (+15%) sur les pads",
+    "Exciter multibande léger sur médiums",
+    "Dynamic EQ pour contrôler 200 Hz",
+  ];
+  const deliverables = [
+    "Stems groupés (Drums / Bass / Harmonie / Lead / FX)",
+    "Version loopable 60s",
+    "Version instrumental",
+    "Preset synthé principal (.vitalpreset / .analoglab)",
+    "Fichier projet DAW (Ableton Live 11)",
   ];
 
   const genre = pick(genres, hash, 0);
@@ -589,14 +821,31 @@ const generateMusicResult = (options: GenerationOptions): GeneratedResult => {
   const tempo = pick(tempos, hash, 4);
   const instrumentation = pick(instruments, hash, 6);
   const structure = pick(structures, hash, 8);
+  const mix = pick(mixTips, hash, 10);
+  const master = pick(mastering, hash, 12);
+  const delivery = pick(deliverables, hash, 14);
 
   const content = [
-    `Titre proposé : « ${genre} ${mood} »`,
-    `Tempo : ${tempo}`,
-    `Ambiance : ${mood}`,
-    `Instrumentation clé : ${instrumentation}`,
-    `Structure recommandée : ${structure}`,
-    "Export suggéré : 48 kHz · 24 bits",
+    "🧠 Synthèse Gemini 2.5",
+    `- Analyse du brief : ${prompt.trim() || "composition atmosphérique"}.`,
+    `- Variation demandée : ${modification ?? "première version"}.`,
+    `- Direction : ${genre} ${mood} à ${tempo}.`,
+    "",
+    "🎼 Plan de composition",
+    `- Structure : ${structure}.`,
+    `- Instrumentation : ${instrumentation}.`,
+    "- Progression harmonique proposée : i – VI – III – VII (mode aeolien).",
+    "- Hook vocal/lead : motif pentatonique en doubles croches, delay ping-pong 3/16.",
+    "",
+    "🎚️ Production & mix",
+    `- Conseil mixage : ${mix}.`,
+    `- Traitement master : ${master}.`,
+    "- Export principal : 48 kHz · 24 bits WAV + version streaming -14 LUFS.",
+    "",
+    "📦 Livrables",
+    `- ${delivery}.`,
+    "- Fichier MIDI mélodie et progression d'accords.",
+    "- Rapport Gemini 2.5 : variantes harmonique et suggestions d'arrangement.",
   ].join("\n");
 
   return {
@@ -634,11 +883,35 @@ const generateAgentResult = (options: GenerationOptions): GeneratedResult => {
     "Identifie les dépendances et ressources nécessaires.",
     "Synthétise les livrables attendus et les jalons.",
   ];
+  const cadences = [
+    "Stand-up quotidien 9h · revue hebdo OKR",
+    "Synthèse asynchrone lundi / jeudi",
+    "Rapport instantané post-tâche + revue mensuelle",
+    "Daily Slack + comité stratégique bi-hebdo",
+    "Check-in 48h + rapport de tendances hebdo",
+  ];
+  const guardrails = [
+    "Ne jamais valider un devis sans approbation humaine",
+    "Toujours citer ses sources dans les rapports",
+    "Limiter l'accès aux données sensibles (lecture seule)",
+    "Respecter RGPD et anonymiser les exports",
+    "Escalader toute décision financière > 2k€",
+  ];
+  const kpis = [
+    "Temps de réponse moyen < 5 min",
+    "Satisfaction post-interaction > 4.7/5",
+    "Tâches clôturées / semaine",
+    "Taux de conversion campagne",
+    "Nombre d'insights actionnables",
+  ];
 
   const persona = pick(personas, hash, 1);
   const stack = [pick(tools, hash, 2), pick(tools, hash, 4), pick(tools, hash, 6)]
     .filter((value, index, array) => array.indexOf(value) === index)
     .join(", ");
+  const cadence = pick(cadences, hash, 8);
+  const guardrail = pick(guardrails, hash, 10);
+  const kpi = pick(kpis, hash, 12);
 
   const refinement = modification
     ? `\n\nAdaptation demandée : ${modification}.`
@@ -648,10 +921,18 @@ const generateAgentResult = (options: GenerationOptions): GeneratedResult => {
     : "";
 
   const content = [
-    `Agent proposé : ${persona}`,
-    `Outils suggérés : ${stack}`,
-    "Routine de travail :",
+    "🧠 Profil Gemini 2.5",
+    `- Persona : ${persona}.`,
+    `- Stack activée : ${stack}.`,
+    `- Cadence de synchronisation : ${cadence}.`,
+    `- KPI prioritaire : ${kpi}.`,
+    "",
+    "🔁 Workflow raisonné",
     ...steps.map((step, index) => `${index + 1}. ${step}`),
+    "",
+    "🛡️ Garde-fous",
+    `- ${guardrail}.`,
+    "- Gemini 2.5 opère en mode « raisonnement vérifié » avec journal détaillé des décisions.",
   ].join("\n");
 
   return {
@@ -689,21 +970,59 @@ const generateGameResult = (options: GenerationOptions): GeneratedResult => {
     "narration ramifiée",
     "gestion d'équipes autonomes",
   ];
+  const biomes = [
+    "biomes modulaires générés (quartiers néon, zones industrielles, sanctuaires)",
+    "îlots à verticalité variable reliés par rails lumineux",
+    "anneaux orbitaux multi-gravité",
+    "clairières holographiques évolutives",
+    "galeries souterraines luminescentes",
+  ];
+  const progressionBeats = [
+    "Objectifs de missions dynamiques + arcs personnels des compagnons",
+    "Cartes événementielles générées · réputation de faction",
+    "Arbre de compétences fractal + fabrication de modules uniques",
+    "Décisions morales impactant climat & économie",
+    "Cycle jour/nuit avec menace croissante",
+  ];
+  const techStacks = [
+    "Unreal Engine 5 + Verse scripting + Gemini 2.5 pour narration",
+    "Unity HDRP + ECS + Gemini 2.5 pour génération de quêtes",
+    "Godot 4 + GDExtension + Gemini 2.5 pour dialogues adaptatifs",
+    "Unreal + Lyra sample + Gemini 2.5 pour comportement IA",
+    "Unity URP + Netcode + Gemini 2.5 pour événements live",
+  ];
 
   const genre = pick(genres, hash, 0);
   const setting = pick(settings, hash, 3);
   const mechanic = pick(mechanics, hash, 5);
+  const biome = pick(biomes, hash, 7);
+  const progressionBeat = pick(progressionBeats, hash, 9);
+  const techStack = pick(techStacks, hash, 11);
 
   const content = [
-    `Concept : ${genre} dans une ${setting}.`,
-    `Mécanique signature : ${mechanic}.`,
-    "Boucle de jeu :",
-    "1. Préparation des missions et sélection des compétences.",
-    "2. Exploration générative avec événements dynamiques.",
-    "3. Phase de résolution influencée par les choix narratifs.",
-    "4. Déblocage d'améliorations persistantes.",
-    "\nPilier artistique : mélange de low-poly stylisé et d'effets lumineux volumétriques.",
-    "Progression : met en avant la rejouabilité par cartes modulaires et scénarios évolutifs.",
+    "🧠 Vision Gemini 2.5",
+    `- Genre : ${genre}.`,
+    `- Cadre : ${setting} avec ${biome}.`,
+    `- Mécanique signature : ${mechanic}.`,
+    "",
+    "🎮 Boucle de jeu",
+    "1. Préparation : briefing dynamique, loadout généré par Gemini 2.5 selon mission.",
+    "2. Exploration : niveaux modulaires + événements systémiques IA.",
+    "3. Résolution : choix narratifs branchés, puzzles contextuels, combats tactiques.",
+    "4. Retombées : récompenses persistantes, relations PNJ, évolution du monde.",
+    "",
+    "📈 Progression",
+    `- ${progressionBeat}.`,
+    "- Table de loot adaptative IA + contrats hebdomadaires évolutifs.",
+    "",
+    "🎨 Direction artistique",
+    "- Palette : néons prismatiques + contrastes profonds.",
+    "- Effets : volumétrie particulaire, motion blur cinématique, UI diegétique.",
+    "",
+    "🛠️ Stack de production",
+    `- ${techStack}.`,
+    "- Pipeline audio : Wwise + Gemini 2.5 pour barks adaptatifs.",
+    "- LiveOps : génération d'événements limités via workflows Gemini.",
   ].join("\n");
 
   return {
