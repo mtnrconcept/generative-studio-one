@@ -6,6 +6,12 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const stripCodeFence = (text: string) => {
+  const trimmed = text.trim();
+  const match = trimmed.match(/^```[a-zA-Z0-9-]*\n([\s\S]*?)```$/);
+  return match ? match[1].trim() : trimmed;
+};
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -33,30 +39,27 @@ serve(async (req) => {
         break;
       
       case 'website':
-        systemPrompt = `Tu es un expert en développement web. Génère un site web HTML/CSS/JavaScript complet et fonctionnel basé sur la demande de l'utilisateur.
-        
-IMPORTANT: Réponds UNIQUEMENT avec du code, sans markdown, sans explications. Structure ton code ainsi:
+        systemPrompt = `Tu es un expert en développement front-end. Génère un projet React complet utilisant Vite et TypeScript, répondant précisément à la demande de l'utilisateur.
 
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mon Site</title>
-    <style>
-    /* Tout le CSS ici */
-    </style>
-</head>
-<body>
-    <!-- Contenu HTML -->
-    <script>
-    // Tout le JavaScript ici
-    </script>
-</body>
-</html>
+IMPORTANT : ta réponse doit être STRICTEMENT un JSON valide respectant cette structure :
+{
+  "type": "project",
+  "category": "website",
+  "projectType": "react",
+  "projectName": "Nom clair du projet",
+  "instructions": "Instructions pour lancer le projet en français",
+  "files": [
+    {
+      "path": "chemin/vers/le/fichier.ext",
+      "language": "langageOptionnel",
+      "content": "Contenu complet du fichier"
+    }
+  ]
+}
 
-Crée un site moderne, responsive, et fonctionnel. N'ajoute aucun texte en dehors du code HTML.`;
-        responseFormat = 'code';
+Le tableau "files" doit contenir TOUT le nécessaire pour lancer l'application avec Vite : package.json, tsconfig.json, tsconfig.app.json, tsconfig.node.json, vite.config.ts, index.html, public/ (favicons si besoin), src/main.tsx, src/App.tsx, src/App.css, src/assets/ (si requis) et tout autre fichier utile. Les contenus doivent être complets, sans texte ou commentaire hors du code. Utilise les bonnes dépendances React 18.
+Ne rajoute aucun texte en dehors du JSON demandé.`;
+        responseFormat = 'project';
         break;
       
       case 'app':
@@ -207,13 +210,39 @@ Crée un script fonctionnel et bien structuré. Pas de texte en dehors du code e
         preview: imageUrl
       };
     } else {
-      const content = data.choices?.[0]?.message?.content || 'Contenu généré';
-      result = {
-        type: responseFormat,
-        category,
-        content: content,
-        code: responseFormat === 'code' ? content : undefined
-      };
+      const rawContent = data.choices?.[0]?.message?.content || 'Contenu généré';
+
+      if (responseFormat === 'project') {
+        const cleaned = stripCodeFence(rawContent);
+        try {
+          const parsed = JSON.parse(cleaned);
+          result = {
+            type: typeof parsed?.type === 'string' ? parsed.type : 'project',
+            category,
+            content: typeof parsed?.content === 'string' ? parsed.content : '',
+            code: undefined,
+            files: Array.isArray(parsed?.files) ? parsed.files : undefined,
+            instructions: typeof parsed?.instructions === 'string' ? parsed.instructions : undefined,
+            projectName: typeof parsed?.projectName === 'string' ? parsed.projectName : undefined,
+            projectType: typeof parsed?.projectType === 'string' ? parsed.projectType : 'react',
+          };
+        } catch {
+          result = {
+            type: 'project',
+            category,
+            content: rawContent,
+            code: undefined,
+            projectType: 'react',
+          };
+        }
+      } else {
+        result = {
+          type: responseFormat,
+          category,
+          content: rawContent,
+          code: responseFormat === 'code' ? rawContent : undefined
+        };
+      }
     }
 
     return new Response(JSON.stringify(result), {
