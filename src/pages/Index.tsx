@@ -15,6 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Sparkles } from "lucide-react";
 import type { GeneratedFile, GeneratedResult } from "@/types/result";
+import type { ContextualEditPayload } from "@/types/editor";
 
 const loadingSteps = [
   "Analyse du prompt et compréhension du contexte",
@@ -293,6 +294,21 @@ const Index = () => {
     }
   };
 
+  const handleContextualEdit = (payload: ContextualEditPayload) => {
+    const details = [`Cible sélectionnée : ${payload.targetSelector}`];
+
+    if (payload.textContent) {
+      details.push(`Texte actuel : "${payload.textContent}"`);
+    }
+
+    const contextualInstruction = `${details.join('\n')}`.concat(
+      `\n\nInstruction : ${payload.instruction}`,
+      `\n\nHTML actuel :\n${payload.outerHTML}`,
+    );
+
+    return handleRefineSubmit(contextualInstruction);
+  };
+
   useEffect(() => {
     let stepIndex = 0;
     let interval: ReturnType<typeof setInterval> | undefined;
@@ -433,7 +449,11 @@ const Index = () => {
 
             <div className="w-full">
               {result ? (
-                <ResultDisplay result={result} history={resultHistory} />
+                <ResultDisplay
+                  result={result}
+                  history={resultHistory}
+                  onContextEdit={handleContextualEdit}
+                />
               ) : (
                 <Card className="h-full min-h-[420px] w-full border-dashed border-border/60 bg-card/30">
                   <div className="flex h-full flex-col items-center justify-center space-y-4 p-8 text-center">

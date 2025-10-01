@@ -4,16 +4,23 @@ import { Download, Sparkles } from "lucide-react";
 import CodeViewer from "./CodeViewer";
 import ReactProjectViewer from "./ReactProjectViewer";
 import type { GeneratedResult } from "@/types/result";
+import type { ContextualEditPayload } from "@/types/editor";
 
 interface ResultDisplayProps {
   result: GeneratedResult | null;
   history: GeneratedResult[];
+  onContextEdit?: (payload: ContextualEditPayload) => void;
 }
 
 const summarize = (text: string, maxLength = 80) =>
   text.length > maxLength ? `${text.slice(0, maxLength - 1)}…` : text;
 
-const renderResultContent = (entry: GeneratedResult) => {
+interface RenderOptions {
+  enableVisualEditing?: boolean;
+  onContextEdit?: (payload: ContextualEditPayload) => void;
+}
+
+const renderResultContent = (entry: GeneratedResult, options?: RenderOptions) => {
   if (entry.type === 'image' && entry.preview) {
     return (
       <div className="flex items-center justify-center min-h-[300px]">
@@ -37,7 +44,13 @@ const renderResultContent = (entry: GeneratedResult) => {
   }
 
   if (entry.type === 'code' && entry.code) {
-    return <CodeViewer code={entry.code} category={entry.category} />;
+    return (
+      <CodeViewer
+        code={entry.code}
+        category={entry.category}
+        onContextEdit={options?.enableVisualEditing ? options?.onContextEdit : undefined}
+      />
+    );
   }
 
   if (entry.type === 'description') {
@@ -62,7 +75,7 @@ const renderResultContent = (entry: GeneratedResult) => {
   );
 };
 
-const ResultDisplay = ({ result, history }: ResultDisplayProps) => {
+const ResultDisplay = ({ result, history, onContextEdit }: ResultDisplayProps) => {
   if (!result) return null;
 
   const handleDownloadImage = () => {
@@ -113,7 +126,7 @@ const ResultDisplay = ({ result, history }: ResultDisplayProps) => {
         </div>
 
         <div className="rounded-lg bg-background/50 p-4">
-          {renderResultContent(result)}
+          {renderResultContent(result, { enableVisualEditing: true, onContextEdit })}
         </div>
 
         {history.length > 1 && (
