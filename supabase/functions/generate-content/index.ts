@@ -12,8 +12,10 @@ serve(async (req) => {
   }
 
   try {
-    const { prompt, category } = await req.json();
-    console.log(`Génération pour catégorie: ${category}, prompt: ${prompt}`);
+    const { prompt, category, modification, existingContent } = await req.json();
+    console.log(
+      `Génération pour catégorie: ${category}, prompt: ${prompt}, modification: ${modification ? modification : 'aucune'}`,
+    );
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
@@ -151,6 +153,25 @@ Crée un script fonctionnel et bien structuré. Pas de texte en dehors du code e
         systemPrompt = "Vous êtes un assistant IA créatif et précis.";
     }
 
+    const messages: Array<{ role: string; content: string }> = [
+      { role: "system", content: systemPrompt },
+    ];
+
+    if (prompt) {
+      messages.push({ role: "user", content: prompt });
+    }
+
+    if (existingContent) {
+      messages.push({ role: "assistant", content: existingContent });
+    }
+
+    if (modification) {
+      const modificationInstruction = existingContent
+        ? `Merci d'ajuster la proposition précédente sans repartir de zéro. Conserve ce qui fonctionne et applique uniquement les changements demandés: ${modification}`
+        : `Merci d'améliorer la proposition précédente en suivant ces instructions: ${modification}`;
+      messages.push({ role: "user", content: modificationInstruction });
+    }
+
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -159,10 +180,7 @@ Crée un script fonctionnel et bien structuré. Pas de texte en dehors du code e
       },
       body: JSON.stringify({
         model: useImageGeneration ? "google/gemini-2.5-flash-image-preview" : "google/gemini-2.5-flash",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: prompt }
-        ],
+        messages,
         modalities: useImageGeneration ? ["image", "text"] : undefined
       }),
     });
