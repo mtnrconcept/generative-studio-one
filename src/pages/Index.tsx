@@ -14,7 +14,7 @@ import agentIcon from "@/assets/agent-icon.png";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Sparkles } from "lucide-react";
-import type { GeneratedResult } from "@/types/result";
+import type { GeneratedFile, GeneratedResult } from "@/types/result";
 
 const loadingSteps = [
   "Analyse du prompt et compréhension du contexte",
@@ -62,6 +62,112 @@ const categories = [
   },
 ];
 
+const stripCodeFence = (code: string) => {
+  const trimmed = code.trim();
+  const fenceMatch = trimmed.match(/^```[a-zA-Z0-9-]*\n([\s\S]*?)```$/);
+
+  if (fenceMatch) {
+    return fenceMatch[1].trim();
+  }
+
+  return trimmed;
+};
+
+const parseFilesFromResponse = (data: unknown): GeneratedFile[] | undefined => {
+  if (!data) return undefined;
+
+  if (Array.isArray((data as { files?: unknown }).files)) {
+    const files = (data as { files: GeneratedFile[] }).files;
+    return files.filter((file) => file?.path && typeof file.path === 'string');
+  }
+
+  if (typeof (data as { files?: unknown }).files === 'string') {
+    try {
+      const parsed = JSON.parse(stripCodeFence((data as { files: string }).files));
+      if (Array.isArray(parsed)) {
+        return parsed.filter((file) => file?.path && typeof file.path === 'string');
+      }
+      if (Array.isArray(parsed?.files)) {
+        return parsed.files.filter((file: GeneratedFile) => file?.path && typeof file.path === 'string');
+      }
+    } catch (error) {
+      console.error('Impossible de parser le manifeste de fichiers fourni', error);
+    }
+  }
+
+  if (typeof (data as { code?: unknown }).code === 'string') {
+    const candidate = stripCodeFence((data as { code: string }).code);
+    const firstChar = candidate.trim()[0];
+
+    if (firstChar === '{' || firstChar === '[') {
+      try {
+        const parsed = JSON.parse(candidate);
+        if (Array.isArray(parsed?.files)) {
+          return parsed.files.filter((file: GeneratedFile) => file?.path && typeof file.path === 'string');
+        }
+        if (Array.isArray(parsed)) {
+          return parsed.filter((file: GeneratedFile) => file?.path && typeof file.path === 'string');
+        }
+      } catch (error) {
+        console.error('Impossible de parser le code comme un projet multi-fichiers', error);
+      }
+    }
+  }
+
+  return undefined;
+};
+
+const extractInstructions = (data: unknown) => {
+  if (!data) return undefined;
+
+  if (typeof (data as { instructions?: string }).instructions === 'string') {
+    return (data as { instructions: string }).instructions;
+  }
+
+  if (typeof (data as { readme?: string }).readme === 'string') {
+    return (data as { readme: string }).readme;
+  }
+
+  if (typeof (data as { documentation?: string }).documentation === 'string') {
+    return (data as { documentation: string }).documentation;
+  }
+
+  return undefined;
+};
+
+const buildGeneratedResult = (
+  data: Record<string, unknown>,
+  base: Pick<GeneratedResult, 'prompt' | 'version' | 'category' | 'type'> & {
+    modification?: string;
+  }
+): GeneratedResult => {
+  const files = parseFilesFromResponse(data);
+
+  return {
+    type: (data['type'] as string) || base.type,
+    category: (data['category'] as string) || base.category,
+    content:
+      typeof data['content'] === 'string'
+        ? (data['content'] as string)
+        : base.category === 'website' && !files
+          ? (data['code'] as string)
+          : '',
+    preview: typeof data['preview'] === 'string' ? (data['preview'] as string) : undefined,
+    code: typeof data['code'] === 'string' ? (data['code'] as string) : undefined,
+    prompt: base.prompt,
+    version: base.version,
+    modification: base.modification,
+    files,
+    instructions: extractInstructions(data),
+    projectName: typeof data['projectName'] === 'string' ? (data['projectName'] as string) : undefined,
+    projectType: typeof data['projectType'] === 'string'
+      ? (data['projectType'] as string)
+      : files
+        ? 'react'
+        : undefined,
+  };
+};
+
 const Index = () => {
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
@@ -97,15 +203,15 @@ const Index = () => {
 
       if (error) throw error;
 
-      const generatedResult: GeneratedResult = {
-        type: data.type || selectedCategory,
-        category: data.category || selectedCategory,
-        content: data.content,
-        preview: data.preview,
-        code: data.code,
+      const normalizedData =
+        data && typeof data === 'object' ? (data as Record<string, unknown>) : {};
+
+      const generatedResult = buildGeneratedResult(normalizedData, {
+        type: selectedCategory,
+        category: selectedCategory,
         prompt,
         version: 1,
-      };
+      });
 
       setLastPrompt(prompt);
       setResult(generatedResult);
@@ -154,16 +260,16 @@ const Index = () => {
       if (error) throw error;
 
       const version = resultHistory.length + 1;
-      const refinedResult: GeneratedResult = {
-        type: data.type || selectedCategory,
-        category: data.category || selectedCategory,
-        content: data.content,
-        preview: data.preview,
-        code: data.code,
+      const normalizedData =
+        data && typeof data === 'object' ? (data as Record<string, unknown>) : {};
+
+      const refinedResult = buildGeneratedResult(normalizedData, {
+        type: selectedCategory,
+        category: selectedCategory,
         prompt: lastPrompt,
         version,
         modification,
-      };
+      });
 
       setResult(refinedResult);
       setResultHistory((prev) => [...prev, refinedResult]);
