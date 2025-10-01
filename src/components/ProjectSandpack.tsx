@@ -9,12 +9,16 @@ import {
 import type { GeneratedFile } from "@/types/result";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Code2, Columns, Loader2, Monitor } from "lucide-react";
+import { Code2, Columns, Loader2, Monitor, PanelRightOpen } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface ProjectSandpackProps {
   files: GeneratedFile[];
   activeFile?: string;
   isGenerating?: boolean;
+  className?: string;
+  isFileTreeCollapsed?: boolean;
+  onExpandFileTree?: () => void;
 }
 
 const normalizeSandpackPath = (path: string) => (path.startsWith("/") ? path : `/${path}`);
@@ -27,7 +31,14 @@ const LoaderOverlay = () => (
   </div>
 );
 
-const ProjectSandpack = ({ files, activeFile, isGenerating = false }: ProjectSandpackProps) => {
+const ProjectSandpack = ({
+  files,
+  activeFile,
+  isGenerating = false,
+  className,
+  isFileTreeCollapsed = false,
+  onExpandFileTree,
+}: ProjectSandpackProps) => {
   const sandpackFiles = useMemo(() => {
     if (!files.length) return undefined;
 
@@ -54,10 +65,16 @@ const ProjectSandpack = ({ files, activeFile, isGenerating = false }: ProjectSan
   const defaultActiveFile = activeFile ? normalizeSandpackPath(activeFile) : Object.keys(sandpackFiles)[0];
 
   return (
-    <div className="relative flex h-full flex-col border-t border-border/50 bg-background/60 lg:border-t-0">
+    <div className={cn("relative flex h-full flex-col border-t border-border/50 bg-background/60 lg:border-t-0", className)}>
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/40 px-4 py-4 sm:px-6">
         <p className="text-sm font-semibold text-muted-foreground">Espace de génération live</p>
         <div className="flex items-center gap-2">
+          {isFileTreeCollapsed && onExpandFileTree && (
+            <Button size="sm" variant="outline" className="gap-2" onClick={onExpandFileTree}>
+              <PanelRightOpen className="h-4 w-4" />
+              Afficher l'arborescence
+            </Button>
+          )}
           <Button
             size="sm"
             variant={viewMode === "split" ? "default" : "outline"}

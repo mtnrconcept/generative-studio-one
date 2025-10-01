@@ -1,13 +1,15 @@
 import { useMemo } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { GeneratedFile } from "@/types/result";
-import { Folder, FileText } from "lucide-react";
+import { Folder, FileText, PanelLeftClose } from "lucide-react";
 
 interface ProjectFileTreeProps {
   files: GeneratedFile[];
   activeFile?: string;
   onSelect: (path: string) => void;
+  onCollapse?: () => void;
 }
 
 interface TreeNode {
@@ -67,7 +69,7 @@ const buildTree = (files: GeneratedFile[]): TreeNode[] => {
   return root.children ?? [];
 };
 
-const ProjectFileTree = ({ files, activeFile, onSelect }: ProjectFileTreeProps) => {
+const ProjectFileTree = ({ files, activeFile, onSelect, onCollapse }: ProjectFileTreeProps) => {
   const tree = useMemo(() => buildTree(files), [files]);
 
   const renderNode = (node: TreeNode, depth = 0): JSX.Element => {
@@ -113,8 +115,21 @@ const ProjectFileTree = ({ files, activeFile, onSelect }: ProjectFileTreeProps) 
 
   return (
     <div className="flex h-full flex-col border-t border-border/50 bg-background/60 lg:border-t-0 lg:border-r">
-      <div className="border-b border-border/40 px-4 py-3">
+      <div className="flex items-center justify-between border-b border-border/40 px-4 py-3">
         <p className="text-sm font-semibold text-muted-foreground">Arborescence du projet</p>
+        {onCollapse && (
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="gap-2 text-xs text-muted-foreground hover:text-foreground"
+            onClick={onCollapse}
+            disabled={!files.length}
+          >
+            <PanelLeftClose className="h-4 w-4" />
+            Masquer
+          </Button>
+        )}
       </div>
       <ScrollArea className="flex-1 px-3 py-4">
         {tree.length ? (
