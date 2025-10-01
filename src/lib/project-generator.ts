@@ -1392,7 +1392,16 @@ import { cn } from "./lib/utils";
 
 export default function App() {
   const backgroundStyle = {
-    backgroundImage: `radial-gradient(circle at 0% 0%, \${siteConfig.palette.gradient.from}, transparent 55%), radial-gradient(circle at 100% 0%, \${siteConfig.palette.gradient.via}, transparent 60%), radial-gradient(circle at 50% 120%, \${siteConfig.palette.gradient.to}, transparent 70%)`,
+    backgroundImage:
+      "radial-gradient(circle at 0% 0%, " +
+      siteConfig.palette.gradient.from +
+      ", transparent 55%), " +
+      "radial-gradient(circle at 100% 0%, " +
+      siteConfig.palette.gradient.via +
+      ", transparent 60%), " +
+      "radial-gradient(circle at 50% 120%, " +
+      siteConfig.palette.gradient.to +
+      ", transparent 70%)",
   };
 
   return (
@@ -2092,7 +2101,10 @@ export function FAQ() {
                 >
                   {item.question}
                   <ChevronDown
-                    className={`h-5 w-5 transition-transform ${isOpen ? "rotate-180 text-primary" : "text-muted-foreground"}`}
+                    className={cn(
+                      "h-5 w-5 transition-transform",
+                      isOpen ? "rotate-180 text-primary" : "text-muted-foreground",
+                    )}
                   />
                 </button>
                 <motion.div
@@ -2455,8 +2467,7 @@ export const generateProjectFromPrompt = (
       "Dashboard démo avec navigation simulée via React.useState (onglets + cartes analytics).",
       "Structure TypeScript prête à être branchée sur vos données métier.",
       "Ajoutez Tailwind/shadcn si besoin en reprenant la logique de tokens employée côté landing pages.",
-    ].join("
-");
+    ].join("\n\n");
 
     return {
       projectName,
@@ -2488,8 +2499,7 @@ export const generateProjectFromPrompt = (
     `Animations Framer Motion configurées sur le preset “${analysis.motion}”. Changez l'ambiance en éditant siteConfig.animation (float | slide | scale) ou en ajustant les props motion dans chaque section.`,
     `Composants UI réutilisables dans src/components/ui et sections modulaires dans src/components/Sections/*.tsx — libre à vous d'étendre le design system shadcn avec de nouveaux patterns.`,
     `Scripts Tailwind fournis : npm run tailwind:init pour générer la config et npm run tailwind:build pour compiler le CSS en watch.`,
-  ].join("
-");
+  ].join("\n\n");
 
   return {
     projectName,
