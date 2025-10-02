@@ -20,6 +20,12 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import CodeViewer from "./CodeViewer";
 import { cn } from "@/lib/utils";
+import {
+  generateGameBlueprint,
+  type GameBrief,
+  type GameSummary,
+  type GeneratedAsset,
+} from "@/lib/gameGenerator";
 
 type ChatMessage = {
   id: string;
@@ -27,24 +33,12 @@ type ChatMessage = {
   content: string;
 };
 
-type GameAsset = {
-  id: string;
-  name: string;
-  category: string;
-  description: string;
+type GameAsset = GeneratedAsset & {
   gradient: string;
 };
 
 type GameBuilderProps = {
   onBack: () => void;
-};
-
-type GameSummary = {
-  title: string;
-  theme: string;
-  elevatorPitch: string;
-  objectives: string[];
-  environment: string;
 };
 
 const gradientPalette = [
@@ -57,16 +51,16 @@ const gradientPalette = [
 ];
 
 const initialSummary: GameSummary = {
-  title: "Jeu de cowboy en forêt",
-  theme: "Action-aventure low-poly dans un canyon forestier",
+  title: "Prototype d'exploration IA",
+  theme: "Univers génératif à configurer",
   elevatorPitch:
-    "Incarnez un ranger-cowboy chargé de défendre un avant-poste isolé dans une forêt d'automne. Combinez exploration, craft léger et duels contre des bandits robotisés.",
+    "Définissez un brief détaillé et l'IA construira un prototype jouable directement dans le previewer.",
   objectives: [
-    "Explorer les ruines de l'avant-poste pour collecter des ressources",
-    "Reprogrammer les tourelles défensives à l'aide d'artefacts trouvés",
-    "Protéger les colons lors d'assauts nocturnes",
+    "Boucle principale : Formuler précisément votre vision de jeu",
+    "Progression : Générer une scène interactive à partir du brief",
+    "Ambiance : Ajuster le rendu en dialoguant avec l'assistant IA",
   ],
-  environment: "Plateaux rocheux avec végétation rougeoyante, rivière brumeuse et lumière rasante du coucher de soleil",
+  environment: "Scène démo stylisée combinant terrains procéduraux et effets atmosphériques dynamiques",
 };
 
 const initialMessages: ChatMessage[] = [
@@ -74,238 +68,112 @@ const initialMessages: ChatMessage[] = [
     id: "assistant-1",
     role: "assistant",
     content:
-      "Bonjour ! Décris-moi ton jeu idéal et je générerai une première version jouable. Tu pourras ensuite me demander n'importe quelle modification.",
+      "Bienvenue dans le studio. Décris ton concept : univers, mécaniques, ennemis, ambiance... Je générerai un jeu jouable conforme à ton brief.",
   },
   {
     id: "assistant-2",
     role: "assistant",
     content:
-      "J'ai commencé avec un décor de canyon forestier et un personnage principal cowboy stylisé. Que souhaites-tu ajuster ensuite ?",
+      "Ajoute autant de détails que nécessaire : objectifs, style visuel, types d'adversaires ou d'alliés. Le moteur IA réinterprétera tout en temps réel.",
   },
+];
+
+const initialUpdates = [
+  "Système de prototype prêt à recevoir un brief détaillé",
+  "Pipeline IA calibré pour interpréter vos directives",
 ];
 
 const initialAssets: GameAsset[] = [
   {
-    id: "asset-1",
-    name: "Cabane Ranger",
-    category: "Décor",
-    description: "Cabane principale avec enseigne lumineuse",
+    id: "asset-brief",
+    name: "Brief Narratif",
+    category: "Design",
+    description: "Structure le contexte et la fantasy du jeu à générer",
     gradient: gradientPalette[0],
   },
   {
-    id: "asset-2",
-    name: "Chicken Bot",
-    category: "Personnage",
-    description: "Robot patrouilleur humoristique",
+    id: "asset-engine",
+    name: "Moteur Prototype",
+    category: "Gameplay",
+    description: "Assemble les mécaniques interactives à partir du prompt",
     gradient: gradientPalette[2],
   },
   {
-    id: "asset-3",
-    name: "Totem Lumineux",
-    category: "Interactivité",
-    description: "Active des bonus de perception",
-    gradient: gradientPalette[1],
-  },
-  {
-    id: "asset-4",
-    name: "Wagon Blindé",
-    category: "Décor",
-    description: "Wagon abandonné servant de couverture",
-    gradient: gradientPalette[3],
-  },
-  {
-    id: "asset-5",
-    name: "Chien Robot",
-    category: "Compagnon",
-    description: "Allié qui piste les intrus",
-    gradient: gradientPalette[5],
-  },
-  {
-    id: "asset-6",
-    name: "Golem de Pierre",
-    category: "Boss",
-    description: "Gardien animé par énergie solaire",
+    id: "asset-visual",
+    name: "Palette Atmosphérique",
+    category: "Direction Artistique",
+    description: "Configure éclairages, effets et ambiance générale",
     gradient: gradientPalette[4],
   },
 ];
 
-const sampleCode = `<!DOCTYPE html>
-<html lang="fr">
-  <head>
-    <meta charset="UTF-8" />
-    <title>Frontier Canyon</title>
-    <style>
-      body { margin: 0; font-family: 'Inter', sans-serif; background: #0b0f1a; color: white; }
-      canvas { display: block; }
-      #hud {
-        position: absolute;
-        top: 32px;
-        left: 32px;
-        padding: 16px 20px;
-        background: rgba(9, 12, 20, 0.75);
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        border-radius: 18px;
-        backdrop-filter: blur(14px);
-      }
-      .hud-title { font-size: 22px; font-weight: 600; margin-bottom: 4px; }
-      .hud-sub { opacity: 0.7; font-size: 14px; }
-    </style>
-  </head>
-  <body>
-    <div id="hud">
-      <div class="hud-title">Ranger Ezra</div>
-      <div class="hud-sub">Mission : sécuriser l'avant-poste brumeux</div>
-    </div>
-    <canvas id="scene"></canvas>
-    <script type="module">
-      import * as THREE from 'https://cdn.skypack.dev/three@0.160.0';
-      import { OrbitControls } from 'https://cdn.skypack.dev/three@0.160.0/examples/jsm/controls/OrbitControls.js';
+const enrichAssetsWithGradients = (assets: GeneratedAsset[]): GameAsset[] =>
+  assets.map((asset, index) => ({
+    ...asset,
+    gradient: gradientPalette[index % gradientPalette.length],
+  }));
 
-      const canvas = document.getElementById('scene');
-      const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-      renderer.setSize(window.innerWidth, window.innerHeight);
-      renderer.setPixelRatio(window.devicePixelRatio);
+const mergeUpdates = (instruction: string | null, blueprintUpdates: string[], previous: string[]): string[] => {
+  const combined = [
+    ...(instruction ? [`Instruction joueur : ${instruction}`] : []),
+    ...blueprintUpdates,
+    ...previous,
+  ];
 
-      const scene = new THREE.Scene();
-      scene.background = new THREE.Color('#2a3348');
+  const deduped: string[] = [];
+  const seen = new Set<string>();
 
-      const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 200);
-      camera.position.set(6, 5, 9);
+  for (const entry of combined) {
+    if (!seen.has(entry)) {
+      seen.add(entry);
+      deduped.push(entry);
+    }
+    if (deduped.length >= 10) break;
+  }
 
-      const controls = new OrbitControls(camera, renderer.domElement);
-      controls.enableDamping = true;
+  return deduped;
+};
 
-      const ambient = new THREE.HemisphereLight('#fcd18b', '#20202a', 1.1);
-      scene.add(ambient);
-
-      const sun = new THREE.DirectionalLight('#ffb16a', 1.2);
-      sun.position.set(12, 15, 6);
-      sun.castShadow = true;
-      scene.add(sun);
-
-      const ground = new THREE.Mesh(
-        new THREE.BoxGeometry(20, 1, 20),
-        new THREE.MeshStandardMaterial({ color: '#9b5f39' })
-      );
-      ground.position.y = -0.6;
-      ground.receiveShadow = true;
-      scene.add(ground);
-
-      const canyon = new THREE.Group();
-      for (let i = 0; i < 24; i++) {
-        const block = new THREE.Mesh(
-          new THREE.BoxGeometry(1.2, 1 + Math.random() * 2.5, 1.2),
-          new THREE.MeshStandardMaterial({ color: Math.random() > 0.5 ? '#d1854d' : '#c0663c' })
-        );
-        block.position.set((Math.random() - 0.5) * 12, block.geometry.parameters.height / 2 - 0.5, (Math.random() - 0.5) * 12);
-        block.castShadow = true;
-        canyon.add(block);
-      }
-      scene.add(canyon);
-
-      const cabin = new THREE.Mesh(
-        new THREE.BoxGeometry(2.4, 1.4, 1.8),
-        new THREE.MeshStandardMaterial({ color: '#5a4334' })
-      );
-      cabin.position.set(-1.2, 0.3, 0);
-      cabin.castShadow = true;
-      scene.add(cabin);
-
-      const ranger = new THREE.Mesh(
-        new THREE.CapsuleGeometry(0.25, 0.9, 6, 12),
-        new THREE.MeshStandardMaterial({ color: '#f5d7a1' })
-      );
-      ranger.position.set(0, 1, 0);
-      ranger.castShadow = true;
-      scene.add(ranger);
-
-      const drone = new THREE.Mesh(
-        new THREE.SphereGeometry(0.3, 16, 16),
-        new THREE.MeshStandardMaterial({ color: '#f36f6f', emissive: '#ffb347', emissiveIntensity: 0.6 })
-      );
-      drone.position.set(1.6, 1.6, -0.8);
-      drone.castShadow = true;
-      scene.add(drone);
-
-      const clock = new THREE.Clock();
-
-      function animate() {
-        requestAnimationFrame(animate);
-        const t = clock.getElapsedTime();
-        drone.position.y = 1.6 + Math.sin(t * 2) * 0.2;
-        drone.rotation.y += 0.01;
-        controls.update();
-        renderer.render(scene, camera);
-      }
-
-      animate();
-
-      window.addEventListener('resize', () => {
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        camera.aspect = window.innerWidth / window.innerHeight;
-        camera.updateProjectionMatrix();
-      });
-    </script>
-  </body>
-</html>`;
+const buildFallbackAssistantReply = (message: string) =>
+  `Compris ! J'ai noté ta demande : « ${message} ». Génère ou régénère le prototype pour voir la mise à jour.`;
 
 const GameBuilder = ({ onBack }: GameBuilderProps) => {
   const [summary, setSummary] = useState<GameSummary>(initialSummary);
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
   const [messageInput, setMessageInput] = useState("");
   const [assets, setAssets] = useState<GameAsset[]>(initialAssets);
-  const [selectedAssets, setSelectedAssets] = useState<Set<string>>(new Set(["asset-1", "asset-2"]));
+  const [selectedAssets, setSelectedAssets] = useState<Set<string>>(
+    () => new Set(initialAssets.slice(0, 2).map((asset) => asset.id))
+  );
   const [assetPrompt, setAssetPrompt] = useState("");
-  const [updates, setUpdates] = useState<string[]>([
-    "Terrain généré avec variations de hauteur et occlusion atmosphérique",
-    "Cycle jour/nuit configuré avec intensité rougeoyante",
-  ]);
+  const [updates, setUpdates] = useState<string[]>(initialUpdates);
   const [hasGeneratedPrototype, setHasGeneratedPrototype] = useState(false);
   const [promptTitle, setPromptTitle] = useState("");
   const [promptTheme, setPromptTheme] = useState("");
   const [promptDescription, setPromptDescription] = useState("");
   const [referenceInput, setReferenceInput] = useState("");
   const [referenceImages, setReferenceImages] = useState<string[]>([]);
+  const [gameCode, setGameCode] = useState("");
+  const [gamePreviewKey, setGamePreviewKey] = useState(0);
+  const [currentBrief, setCurrentBrief] = useState<GameBrief | null>(null);
 
-  const handleSendMessage = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!messageInput.trim()) return;
+  const selectedAssetDetails = useMemo(
+    () => assets.filter((asset) => selectedAssets.has(asset.id)),
+    [assets, selectedAssets]
+  );
 
-    const userMessage: ChatMessage = {
-      id: `user-${Date.now()}`,
-      role: "user",
-      content: messageInput.trim(),
-    };
+  const applyBlueprint = (brief: GameBrief, options?: { userInstruction?: string }) => {
+    const blueprint = generateGameBlueprint(brief, options);
+    const generatedAssets = enrichAssetsWithGradients(blueprint.assets);
 
-    const assistantMessage: ChatMessage = {
-      id: `assistant-${Date.now()}`,
-      role: "assistant",
-      content: generateAssistantReply(messageInput.trim()),
-    };
+    setSummary(blueprint.summary);
+    setAssets(generatedAssets);
+    setSelectedAssets(new Set(blueprint.selectedAssetIds));
+    setGameCode(blueprint.code);
+    setGamePreviewKey((prev) => prev + 1);
+    setCurrentBrief(brief);
 
-    setMessages((prev) => [...prev, userMessage, assistantMessage]);
-    setUpdates((prev) => [
-      `Modification : ${messageInput.trim()}`,
-      ...prev,
-    ]);
-    setSummary((prev) => ({
-      ...prev,
-      elevatorPitch: updatePitch(prev.elevatorPitch, messageInput.trim()),
-    }));
-    setMessageInput("");
-  };
-
-  const generateAssistantReply = (message: string) => {
-    return `Compris ! J'ai mis à jour la scène pour refléter : « ${message} ». Tu peux prévisualiser la mise à jour et me demander d'autres ajustements.`;
-  };
-
-  const updatePitch = (current: string, message: string) => {
-    if (!message) return current;
-    const sentence = `\n\nMise à jour récente : ${message}.`;
-    if (current.includes("Mise à jour récente")) {
-      return current.replace(/Mise à jour récente :[\s\S]*$/, `Mise à jour récente : ${message}.`);
-    }
-    return `${current}${sentence}`;
+    return blueprint;
   };
 
   const handleToggleAsset = (assetId: string) => {
@@ -333,13 +201,8 @@ const GameBuilder = ({ onBack }: GameBuilderProps) => {
     setAssets((prev) => [newAsset, ...prev]);
     setSelectedAssets((prev) => new Set(prev).add(newAsset.id));
     setAssetPrompt("");
-    setUpdates((prev) => [`Nouvel asset généré : ${newAsset.name}`, ...prev]);
+    setUpdates((prev) => mergeUpdates(null, [`Nouvel asset généré : ${newAsset.name}`], prev));
   };
-
-  const selectedAssetDetails = useMemo(
-    () => assets.filter((asset) => selectedAssets.has(asset.id)),
-    [assets, selectedAssets]
-  );
 
   const handleAddReferenceImage = () => {
     if (!referenceInput.trim()) return;
@@ -351,80 +214,104 @@ const GameBuilder = ({ onBack }: GameBuilderProps) => {
     setReferenceImages((prev) => prev.filter((_, idx) => idx !== index));
   };
 
-  const buildObjectivesFromDescription = (description: string) => {
-    const sentences = description
-      .split(/[.!?]/)
-      .map((sentence) => sentence.trim())
-      .filter(Boolean)
-      .slice(0, 3);
-
-    if (sentences.length === 0) {
-      return initialSummary.objectives;
-    }
-
-    return sentences.map((sentence, index) => {
-      if (index === 0) {
-        return `Boucle principale : ${sentence}`;
-      }
-      if (index === 1) {
-        return `Progression : ${sentence}`;
-      }
-      return `Ambiance : ${sentence}`;
-    });
-  };
-
   const handlePromptGenerate = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    const trimmedTitle = promptTitle.trim();
-    const trimmedTheme = promptTheme.trim();
-    const trimmedDescription = promptDescription.trim();
-
-    const updatedSummary: GameSummary = {
-      title: trimmedTitle || "Prototype IA personnalisé",
-      theme:
-        trimmedTheme ||
-        "Univers généré automatiquement mêlant aventure et exploration",
-      elevatorPitch:
-        trimmedDescription ||
-        "Prototype généré automatiquement sur la base de votre brief.",
-      objectives: buildObjectivesFromDescription(trimmedDescription),
-      environment:
-        trimmedTheme
-          ? `Environnement inspiré par ${trimmedTheme.toLowerCase()}`
-          : initialSummary.environment,
+    const brief: GameBrief = {
+      title: promptTitle.trim(),
+      theme: promptTheme.trim(),
+      description: promptDescription.trim(),
+      references: referenceImages,
     };
 
-    const onboardingMessage: ChatMessage = {
+    const blueprint = applyBlueprint(brief);
+    const timestamp = Date.now();
+
+    setMessages([
+      {
+        id: `assistant-${timestamp}`,
+        role: "assistant",
+        content: blueprint.assistantMessage,
+      },
+      {
+        id: `assistant-${timestamp + 1}`,
+        role: "assistant",
+        content: "N'hésite pas à me donner d'autres instructions, je regénérerai instantanément la scène jouable.",
+      },
+    ]);
+    setUpdates(blueprint.updates);
+    setHasGeneratedPrototype(true);
+  };
+
+  const handleSendMessage = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!messageInput.trim()) return;
+
+    const trimmedMessage = messageInput.trim();
+    const userMessage: ChatMessage = {
+      id: `user-${Date.now()}`,
+      role: "user",
+      content: trimmedMessage,
+    };
+
+    let assistantContent = buildFallbackAssistantReply(trimmedMessage);
+
+    if (currentBrief) {
+      const updatedBrief: GameBrief = {
+        ...currentBrief,
+        title: summary.title,
+        theme: summary.theme,
+        description: `${currentBrief.description}\n${trimmedMessage}`.trim(),
+      };
+
+      const blueprint = applyBlueprint(updatedBrief, { userInstruction: trimmedMessage });
+
+      setUpdates((prev) => mergeUpdates(trimmedMessage, blueprint.updates, prev));
+
+      assistantContent = blueprint.assistantMessage;
+    }
+
+    const assistantMessage: ChatMessage = {
       id: `assistant-${Date.now()}`,
       role: "assistant",
-      content: `Le prototype « ${updatedSummary.title} » est prêt. J'ai pris en compte ton brief et les références visuelles pour générer la scène initiale. Demande-moi n'importe quel ajustement !`,
+      content: assistantContent,
     };
 
-    setSummary(updatedSummary);
-    setMessages([onboardingMessage]);
-    setUpdates((prev) => [
-      `Prototype « ${updatedSummary.title} » généré à partir de votre brief.`,
-      trimmedDescription
-        ? `Pitch initial : ${trimmedDescription}`
-        : "Pitch généré automatiquement selon le template IA.",
-      ...prev,
-    ]);
-    setSelectedAssets(new Set(["asset-1", "asset-2"]));
+    setMessages((prev) => [...prev, userMessage, assistantMessage]);
     setMessageInput("");
-    setHasGeneratedPrototype(true);
   };
 
   const handleResetPrompt = () => {
     setHasGeneratedPrototype(false);
     setSummary(initialSummary);
     setMessages(initialMessages);
-    setUpdates([
-      "Terrain généré avec variations de hauteur et occlusion atmosphérique",
-      "Cycle jour/nuit configuré avec intensité rougeoyante",
-    ]);
-    setSelectedAssets(new Set(["asset-1", "asset-2"]));
+    setUpdates(initialUpdates);
+    setAssets(initialAssets);
+    setSelectedAssets(new Set(initialAssets.slice(0, 2).map((asset) => asset.id)));
     setMessageInput("");
+    setPromptTitle("");
+    setPromptTheme("");
+    setPromptDescription("");
+    setReferenceImages([]);
+    setReferenceInput("");
+    setAssetPrompt("");
+    setGameCode("");
+    setGamePreviewKey((prev) => prev + 1);
+    setCurrentBrief(null);
+  };
+
+  const handleQuickRegenerate = () => {
+    if (!currentBrief) return;
+    const blueprint = applyBlueprint(currentBrief);
+    setUpdates((prev) => mergeUpdates(null, blueprint.updates, prev));
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: `assistant-${Date.now()}`,
+        role: "assistant",
+        content: "Prototype régénéré selon le brief actuel. Continue à m'indiquer les ajustements souhaités.",
+      },
+    ]);
   };
 
   return (
@@ -444,7 +331,7 @@ const GameBuilder = ({ onBack }: GameBuilderProps) => {
               <div className="space-y-2">
                 <h2 className="text-2xl font-semibold">Définis ton brief de jeu</h2>
                 <p className="text-sm text-muted-foreground">
-                  Décris l'expérience, les mécaniques et l'ambiance souhaitée. Tu peux également ajouter des références visuelles pour guider la génération.
+                  Décris l'expérience, les mécaniques et l'ambiance souhaitée. L'IA construira un prototype jouable fidèle à ton prompt.
                 </p>
               </div>
 
@@ -481,7 +368,7 @@ const GameBuilder = ({ onBack }: GameBuilderProps) => {
                   id="game-description"
                   value={promptDescription}
                   onChange={(event) => setPromptDescription(event.target.value)}
-                  placeholder="Décris le gameplay, l'histoire, les objectifs et le ton général que tu imagines."
+                  placeholder="Décris le gameplay, l'histoire, les ennemis, les alliés, la DA et les objectifs. Chaque détail sera intégré."
                   className="min-h-[180px]"
                 />
               </div>
@@ -507,7 +394,8 @@ const GameBuilder = ({ onBack }: GameBuilderProps) => {
                     {referenceImages.map((reference, index) => (
                       <div
                         key={reference + index}
-                        className="group relative overflow-hidden rounded-xl border border-border/60">
+                        className="group relative overflow-hidden rounded-xl border border-border/60"
+                      >
                         <img
                           src={reference}
                           alt={`Référence ${index + 1}`}
@@ -517,7 +405,8 @@ const GameBuilder = ({ onBack }: GameBuilderProps) => {
                           type="button"
                           onClick={() => handleRemoveReferenceImage(index)}
                           className="absolute right-2 top-2 inline-flex h-8 w-8 items-center justify-center rounded-full bg-background/80 text-foreground shadow-md opacity-0 transition-opacity group-hover:opacity-100"
-                          aria-label="Supprimer la référence">
+                          aria-label="Supprimer la référence"
+                        >
                           <X className="h-4 w-4" />
                         </button>
                       </div>
@@ -525,14 +414,14 @@ const GameBuilder = ({ onBack }: GameBuilderProps) => {
                   </div>
                 ) : (
                   <p className="text-sm text-muted-foreground">
-                    Aucune image ajoutée pour l'instant. Tu peux coller des liens d'artworks, captures ou moodboards.
+                    Aucune image ajoutée pour l'instant. Colle des liens d'artworks, captures ou moodboards pour guider la génération.
                   </p>
                 )}
               </div>
 
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="text-sm text-muted-foreground">
-                  Conseil : détaille les boucles de gameplay principales et les sensations recherchées pour un résultat plus précis.
+                  Conseil : détaille les boucles de gameplay principales, les ennemis, les alliés et les sensations recherchées pour un résultat précis.
                 </div>
                 <Button type="submit" className="gap-2">
                   <Sparkles className="h-4 w-4" />
@@ -547,7 +436,7 @@ const GameBuilder = ({ onBack }: GameBuilderProps) => {
               <div className="space-y-2">
                 <h3 className="text-lg font-semibold">Brief efficace</h3>
                 <p className="text-sm text-muted-foreground">
-                  Un bon prompt décrit le contexte narratif, les mécaniques clés, l'identité visuelle et les inspirations. Inspires-toi de l'exemple ci-dessous.
+                  Un bon prompt décrit le contexte narratif, les mécaniques clés, l'identité visuelle et les inspirations. Inspire-toi de l'exemple ci-dessous.
                 </p>
               </div>
               <div className="rounded-xl border border-border/60 bg-background/60 p-5 space-y-3 text-sm text-foreground/90">
@@ -629,7 +518,8 @@ const GameBuilder = ({ onBack }: GameBuilderProps) => {
                         message.role === "assistant"
                           ? "bg-primary/10 border-primary/20"
                           : "bg-background/80 border-border/60"
-                      )}>
+                      )}
+                    >
                       <div className="flex items-center gap-2 mb-2 text-xs font-medium text-muted-foreground">
                         {message.role === "assistant" ? (
                           <>
@@ -684,53 +574,30 @@ const GameBuilder = ({ onBack }: GameBuilderProps) => {
               <TabsContent value="preview" className="p-6 pt-4">
                 <div className="grid gap-5 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
                   <div className="relative overflow-hidden rounded-2xl border border-border/40 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
-                    <div className="absolute inset-0 opacity-70 bg-[url('https://images.unsplash.com/photo-1526312426976-f4d754fa9bd6?auto=format&fit=crop&w=1200&q=80')] bg-cover bg-center mix-blend-overlay" />
-                    <div className="relative p-6 space-y-6">
-                      <div className="flex items-center justify-between">
-                        <Badge className="bg-primary/20 text-primary border border-primary/40">Mode Gameplay</Badge>
-                        <div className="flex items-center gap-2 text-xs uppercase tracking-widest text-white/70">
-                          <span>Keys</span>
-                          <div className="flex gap-1 text-white">
-                            <span>W</span>
-                            <span>A</span>
-                            <span>S</span>
-                            <span>D</span>
-                          </div>
-                        </div>
+                    {gameCode ? (
+                      <iframe
+                        key={gamePreviewKey}
+                        srcDoc={gameCode}
+                        className="h-[520px] w-full border-0"
+                        title="Prototype jouable généré"
+                        sandbox="allow-scripts allow-pointer-lock allow-same-origin"
+                      />
+                    ) : (
+                      <div className="flex h-[520px] items-center justify-center text-sm text-muted-foreground">
+                        En attente d'un prototype généré.
                       </div>
+                    )}
+                    <div className="pointer-events-none absolute left-6 right-6 top-6 space-y-3 text-white drop-shadow-lg">
+                      <Badge className="bg-primary/20 text-white border border-white/40">Prototype jouable</Badge>
                       <div>
-                        <h3 className="text-2xl font-semibold text-white drop-shadow-md">{summary.title}</h3>
-                        <p className="mt-2 text-sm text-white/80 max-w-xl">
+                        <h3 className="text-2xl font-semibold">{summary.title}</h3>
+                        <p className="mt-2 text-sm text-white/85 max-w-xl">
                           {summary.elevatorPitch}
                         </p>
                       </div>
-                      <div className="grid gap-4 sm:grid-cols-2">
-                        <div className="rounded-xl border border-white/10 bg-white/5 p-4">
-                          <p className="text-xs uppercase tracking-wide text-white/60">Sélection actuelle</p>
-                          <ul className="mt-3 space-y-2 text-sm text-white/90">
-                            {selectedAssetDetails.map((asset) => (
-                              <li key={asset.id} className="flex items-center gap-2">
-                                <Boxes className="h-4 w-4 text-white/70" />
-                                <span>{asset.name}</span>
-                              </li>
-                            ))}
-                            {selectedAssetDetails.length === 0 && (
-                              <li className="text-white/60">Aucun asset actif pour le moment</li>
-                            )}
-                          </ul>
-                        </div>
-                        <div className="rounded-xl border border-white/10 bg-white/5 p-4">
-                          <p className="text-xs uppercase tracking-wide text-white/60">Mises à jour récentes</p>
-                          <ul className="mt-3 space-y-2 text-sm text-white/90">
-                            {updates.slice(0, 4).map((update, index) => (
-                              <li key={index} className="flex items-start gap-2">
-                                <Sparkles className="h-4 w-4 text-white/70 mt-0.5" />
-                                <span>{update}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      </div>
+                    </div>
+                    <div className="pointer-events-none absolute bottom-6 left-6 rounded-xl bg-black/60 px-4 py-3 text-xs uppercase tracking-wide text-white/80">
+                      ZQSD / Flèches pour se déplacer • Collectez tous les artefacts
                     </div>
                   </div>
 
@@ -741,8 +608,7 @@ const GameBuilder = ({ onBack }: GameBuilderProps) => {
                           Résumé du build
                         </h4>
                         <p className="text-sm leading-relaxed text-foreground/80">
-                          Prototype jouable généré avec IA. Comprend un cycle dynamique, un système de compagnons et des vagues d'ennemis scénarisées.
-                          Utilise un rendu low-poly optimisé pour navigateur.
+                          Expérience calibrée sur <span className="font-medium">{summary.theme.toLowerCase()}</span>. Environnement actuel : {summary.environment}. Les objectifs structurent la boucle de jeu suivante : {summary.objectives.map((objective) => objective.replace(/^[^:]+:\s*/, "")).join(" / ")}. Utilise la palette dynamique mise en avant dans le previewer interactif.
                         </p>
                       </div>
                     </Card>
@@ -756,7 +622,8 @@ const GameBuilder = ({ onBack }: GameBuilderProps) => {
                             {referenceImages.map((reference, index) => (
                               <div
                                 key={reference + index}
-                                className="overflow-hidden rounded-lg border border-border/60">
+                                className="overflow-hidden rounded-lg border border-border/60"
+                              >
                                 <img
                                   src={reference}
                                   alt={`Référence ${index + 1}`}
@@ -774,7 +641,12 @@ const GameBuilder = ({ onBack }: GameBuilderProps) => {
                           Actions rapides
                         </h4>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                          <Button variant="outline" className="justify-start gap-2">
+                          <Button
+                            variant="outline"
+                            className="justify-start gap-2"
+                            onClick={handleQuickRegenerate}
+                            disabled={!currentBrief}
+                          >
                             <Sparkles className="h-4 w-4" />
                             Régénérer la scène
                           </Button>
@@ -818,8 +690,14 @@ const GameBuilder = ({ onBack }: GameBuilderProps) => {
                             selectedAssets.has(asset.id)
                               ? "border-primary/60 ring-2 ring-primary/20"
                               : "border-border/50"
-                          )}>
-                          <div className={cn("h-28 w-full rounded-xl bg-gradient-to-br flex items-center justify-center text-base font-semibold text-white", asset.gradient)}>
+                          )}
+                        >
+                          <div
+                            className={cn(
+                              "h-28 w-full rounded-xl bg-gradient-to-br flex items-center justify-center text-base font-semibold text-white",
+                              asset.gradient
+                            )}
+                          >
                             {asset.name}
                           </div>
                           <div className="mt-4 space-y-2">
@@ -833,7 +711,8 @@ const GameBuilder = ({ onBack }: GameBuilderProps) => {
                               type="button"
                               variant={selectedAssets.has(asset.id) ? "default" : "outline"}
                               className="w-full gap-2"
-                              onClick={() => handleToggleAsset(asset.id)}>
+                              onClick={() => handleToggleAsset(asset.id)}
+                            >
                               <Boxes className="h-4 w-4" />
                               {selectedAssets.has(asset.id) ? "Déployer dans la scène" : "Activer l'asset"}
                             </Button>
@@ -849,7 +728,7 @@ const GameBuilder = ({ onBack }: GameBuilderProps) => {
                         Générer un nouvel asset
                       </h4>
                       <Textarea
-                        placeholder="Ex: Statue totemique en pierre avec lumières turquoise"
+                        placeholder="Ex: Statue totémique en pierre avec lumières turquoise"
                         value={assetPrompt}
                         onChange={(event) => setAssetPrompt(event.target.value)}
                         className="min-h-[140px]"
@@ -868,7 +747,8 @@ const GameBuilder = ({ onBack }: GameBuilderProps) => {
                               type="button"
                               variant="secondary"
                               className="bg-secondary/20 text-secondary-foreground/80"
-                              onClick={() => setAssetPrompt(suggestion)}>
+                              onClick={() => setAssetPrompt(suggestion)}
+                            >
                               {suggestion}
                             </Button>
                           ))}
@@ -887,7 +767,7 @@ const GameBuilder = ({ onBack }: GameBuilderProps) => {
                       Inspecte l'intégralité du code exportable pour le jeu WebGL.
                     </p>
                   </div>
-                  <CodeViewer code={sampleCode} category="game" />
+                  <CodeViewer code={gameCode} category="game" />
                 </div>
               </TabsContent>
             </Tabs>
