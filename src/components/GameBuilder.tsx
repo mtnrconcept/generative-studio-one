@@ -8,6 +8,7 @@ import {
   Send,
   Sparkles,
   Image as ImageIcon,
+  ExternalLink,
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -827,6 +828,23 @@ const GameBuilder = ({ onBack }: GameBuilderProps) => {
                               </Badge>
                             </div>
                             <p className="text-sm text-muted-foreground">{asset.description}</p>
+                            {asset.sources && asset.sources.length > 0 && (
+                              <div className="flex flex-wrap items-center gap-2 text-xs text-primary/80">
+                                {asset.sources.map((source) => (
+                                  <a
+                                    key={`${asset.id}-${source.bankId}`}
+                                    href={source.url}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="inline-flex items-center gap-1 rounded-full bg-primary/5 px-2 py-1 font-medium hover:bg-primary/10 hover:text-primary"
+                                    title={`${source.description} • ${source.license}`}
+                                  >
+                                    <ExternalLink className="h-3 w-3" />
+                                    {source.bankName}
+                                  </a>
+                                ))}
+                              </div>
+                            )}
                             <Button
                               type="button"
                               variant={selectedAssets.has(asset.id) ? "default" : "outline"}
