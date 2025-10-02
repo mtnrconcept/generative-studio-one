@@ -31,8 +31,8 @@ interface CreativeGeneratorProps {
 }
 
 const toExecutionSteps = (plan: GenerationPlan): PlanExecutionStep[] => {
-  const steps = plan.sections.flatMap((section) =>
-    section.steps.map((step) => ({
+  const steps = (plan.sections ?? []).flatMap((section) =>
+    (section.steps ?? []).map((step) => ({
       ...step,
       section: section.title,
       status: "pending" as PlanStepStatus,
