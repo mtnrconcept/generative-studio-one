@@ -3,7 +3,7 @@ import type { GenerationPlan, PlanSection } from "@/types/plan";
 import type { ImageAspectRatio, ImageGenerationSettings } from "@/types/image";
 import { supabase } from "@/integrations/supabase/client";
 
-export type CreativeTool = "image" | "music" | "agent";
+export type CreativeTool = "image" | "music" | "agent" | "game";
 
 interface GenerationOptions {
   prompt: string;
@@ -22,6 +22,7 @@ const TOOL_LABELS: Record<CreativeTool, string> = {
   image: "Générateur d'image",
   music: "Générateur de musique",
   agent: "Générateur d'agents",
+  game: "Générateur de jeux vidéo",
 };
 
 const simpleHash = (value: string) => {
@@ -1329,7 +1330,8 @@ export const requestCreativeResult = async (
   };
 };
 
-export const getCreativeToolLabel = (tool: CreativeTool) => TOOL_LABELS[tool];
+export const getCreativeToolLabel = (tool: CreativeTool) =>
+  TOOL_LABELS[tool] ?? tool;
 
 export const requestCreativePlan = async (
   tool: CreativeTool,
