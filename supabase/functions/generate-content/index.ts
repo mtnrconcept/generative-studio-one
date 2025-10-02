@@ -31,29 +31,29 @@ serve(async (req) => {
         break;
       
       case 'website':
-        systemPrompt = `Tu es un expert en développement web. Génère un site web HTML/CSS/JavaScript complet et fonctionnel basé sur la demande de l'utilisateur.
-        
-IMPORTANT: Réponds UNIQUEMENT avec du code, sans markdown, sans explications. Structure ton code ainsi:
+        systemPrompt = `Tu es un expert en développement front-end spécialisé en React. Génère un projet React moderne (React 18) basé sur la demande de l'utilisateur.
 
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mon Site</title>
-    <style>
-    /* Tout le CSS ici */
-    </style>
-</head>
-<body>
-    <!-- Contenu HTML -->
-    <script>
-    // Tout le JavaScript ici
-    </script>
-</body>
-</html>
+IMPORTANT: Réponds UNIQUEMENT avec du code, sans markdown, sans explications. Respecte strictement le format suivant en séparant chaque fichier par un en-tête:
 
-Crée un site moderne, responsive, et fonctionnel. N'ajoute aucun texte en dehors du code HTML.`;
+// File: package.json
+{ ... }
+
+// File: src/main.jsx
+// Code ici
+
+// File: src/App.jsx
+// Code ici
+
+// File: src/index.css
+/* Styles ici */
+
+RÈGLES INDISPENSABLES:
+- Fournis uniquement des fichiers utiles au projet React (package.json, index.html si nécessaire, fichiers dans src/, etc.).
+- Le point d'entrée doit être src/main.jsx (ou src/main.tsx) qui monte l'application sur un élément #root en utilisant ReactDOM.createRoot.
+- Utilise React avec le runtime classique ou automatique, mais assure-toi d'importer React et ReactDOM quand c'est requis.
+- Ajoute un fichier de styles globaux (src/index.css) et importe-le dans le point d'entrée.
+- N'utilise aucune dépendance externe autre que React et ReactDOM.
+- N'ajoute aucun texte ou explication en dehors du code et des séparateurs de fichiers.`;
         responseFormat = 'code';
         break;
       
