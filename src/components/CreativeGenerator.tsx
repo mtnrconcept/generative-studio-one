@@ -96,7 +96,7 @@ const CreativeGenerator = ({ tool, description }: CreativeGeneratorProps) => {
     setStatusMessage("");
   }, [clearTimers]);
 
-  const label = useMemo(() => getCreativeToolLabel(tool), [tool]);
+  const label = useMemo(() => getCreativeToolLabel(tool) ?? tool, [tool]);
 
   const handlePlanRequest = useCallback(
     (basePrompt: string, modification?: string) => {
