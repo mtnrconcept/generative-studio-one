@@ -202,6 +202,16 @@ const GameBuilder = ({ onBack }: GameBuilderProps) => {
       "Livrable attendu : Fournis un fichier HTML complet contenant tout le CSS et JavaScript nécessaire pour un jeu jouable directement dans un navigateur." +
         " Tu peux inclure des bibliothèques externes via des CDN publics si nécessaire, mais intègre toute la logique dans ce fichier afin qu'il soit exécutable tel quel."
     );
+    sections.push(
+      "Contraintes mobiles : Le prototype doit être responsive et parfaitement jouable sur smartphone." +
+        " Ajoute une interface tactile (joystick ou zones directionnelles + boutons d'action) en overlay qui fonctionne par événements pointer/touch." +
+        " Conserve la compatibilité clavier (ZQSD / flèches) en plus des contrôles tactiles." +
+        " Assure-toi que la zone de jeu utilise toute la largeur disponible et que les boutons sont suffisamment espacés pour les doigts."
+    );
+    sections.push(
+      "Optimisation mobile : limite les assets lourds, évite les dépendances inutiles et active requestAnimationFrame pour les boucles de jeu." +
+        " Empêche le défilement de la page lors des interactions tactiles avec le canvas ou la scène du jeu."
+    );
 
     return sections.join("\n\n");
   };
@@ -687,12 +697,13 @@ const GameBuilder = ({ onBack }: GameBuilderProps) => {
                       <iframe
                         key={gamePreviewKey}
                         srcDoc={gameCode}
-                        className="h-[520px] w-full border-0"
+                        className="h-[360px] w-full border-0 sm:h-[440px] lg:h-[520px]"
                         title="Prototype jouable généré"
                         sandbox="allow-scripts allow-pointer-lock"
+                        allow="fullscreen"
                       />
                     ) : (
-                      <div className="flex h-[520px] items-center justify-center text-sm text-muted-foreground">
+                      <div className="flex h-[360px] items-center justify-center text-sm text-muted-foreground sm:h-[440px] lg:h-[520px]">
                         En attente d'un prototype généré.
                       </div>
                     )}
@@ -706,7 +717,7 @@ const GameBuilder = ({ onBack }: GameBuilderProps) => {
                       </div>
                     </div>
                     <div className="pointer-events-none absolute bottom-6 left-6 rounded-xl bg-black/60 px-4 py-3 text-xs uppercase tracking-wide text-white/80">
-                      ZQSD / Flèches pour se déplacer • Collectez tous les artefacts
+                      ZQSD / Flèches ou joystick tactile • Touchez pour interagir
                     </div>
                   </div>
 
