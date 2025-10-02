@@ -4,6 +4,7 @@ import CategoryCard from "@/components/CategoryCard";
 import PromptInput from "@/components/PromptInput";
 import ResultDisplay from "@/components/ResultDisplay";
 import ImageGenerator from "@/components/ImageGenerator";
+import GameBuilder from "@/components/GameBuilder";
 import heroBanner from "@/assets/hero-banner.jpg";
 import gameIcon from "@/assets/game-icon.png";
 import imageIcon from "@/assets/image-icon.png";
@@ -99,7 +100,21 @@ const Index = () => {
   };
 
   const isImageGenerator = selectedCategory === "image";
+  const isGameBuilder = selectedCategory === "game";
   const selectedCategoryInfo = categories.find((c) => c.id === selectedCategory);
+
+  if (isGameBuilder) {
+    return (
+      <div className="min-h-screen bg-background">
+        <GameBuilder
+          onBack={() => {
+            setSelectedCategory("");
+            setResult(null);
+          }}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
