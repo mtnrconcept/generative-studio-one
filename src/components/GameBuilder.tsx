@@ -1,5 +1,15 @@
 import { useMemo, useState, type FormEvent } from "react";
-import { Bot, Check, Boxes, MessageSquare, Plus, Send, Sparkles } from "lucide-react";
+import {
+  Bot,
+  Check,
+  Boxes,
+  MessageSquare,
+  Plus,
+  Send,
+  Sparkles,
+  Image as ImageIcon,
+  X,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -250,6 +260,12 @@ const GameBuilder = ({ onBack }: GameBuilderProps) => {
     "Terrain généré avec variations de hauteur et occlusion atmosphérique",
     "Cycle jour/nuit configuré avec intensité rougeoyante",
   ]);
+  const [hasGeneratedPrototype, setHasGeneratedPrototype] = useState(false);
+  const [promptTitle, setPromptTitle] = useState("");
+  const [promptTheme, setPromptTheme] = useState("");
+  const [promptDescription, setPromptDescription] = useState("");
+  const [referenceInput, setReferenceInput] = useState("");
+  const [referenceImages, setReferenceImages] = useState<string[]>([]);
 
   const handleSendMessage = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -325,6 +341,92 @@ const GameBuilder = ({ onBack }: GameBuilderProps) => {
     [assets, selectedAssets]
   );
 
+  const handleAddReferenceImage = () => {
+    if (!referenceInput.trim()) return;
+    setReferenceImages((prev) => [referenceInput.trim(), ...prev]);
+    setReferenceInput("");
+  };
+
+  const handleRemoveReferenceImage = (index: number) => {
+    setReferenceImages((prev) => prev.filter((_, idx) => idx !== index));
+  };
+
+  const buildObjectivesFromDescription = (description: string) => {
+    const sentences = description
+      .split(/[.!?]/)
+      .map((sentence) => sentence.trim())
+      .filter(Boolean)
+      .slice(0, 3);
+
+    if (sentences.length === 0) {
+      return initialSummary.objectives;
+    }
+
+    return sentences.map((sentence, index) => {
+      if (index === 0) {
+        return `Boucle principale : ${sentence}`;
+      }
+      if (index === 1) {
+        return `Progression : ${sentence}`;
+      }
+      return `Ambiance : ${sentence}`;
+    });
+  };
+
+  const handlePromptGenerate = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    const trimmedTitle = promptTitle.trim();
+    const trimmedTheme = promptTheme.trim();
+    const trimmedDescription = promptDescription.trim();
+
+    const updatedSummary: GameSummary = {
+      title: trimmedTitle || "Prototype IA personnalisé",
+      theme:
+        trimmedTheme ||
+        "Univers généré automatiquement mêlant aventure et exploration",
+      elevatorPitch:
+        trimmedDescription ||
+        "Prototype généré automatiquement sur la base de votre brief.",
+      objectives: buildObjectivesFromDescription(trimmedDescription),
+      environment:
+        trimmedTheme
+          ? `Environnement inspiré par ${trimmedTheme.toLowerCase()}`
+          : initialSummary.environment,
+    };
+
+    const onboardingMessage: ChatMessage = {
+      id: `assistant-${Date.now()}`,
+      role: "assistant",
+      content: `Le prototype « ${updatedSummary.title} » est prêt. J'ai pris en compte ton brief et les références visuelles pour générer la scène initiale. Demande-moi n'importe quel ajustement !`,
+    };
+
+    setSummary(updatedSummary);
+    setMessages([onboardingMessage]);
+    setUpdates((prev) => [
+      `Prototype « ${updatedSummary.title} » généré à partir de votre brief.`,
+      trimmedDescription
+        ? `Pitch initial : ${trimmedDescription}`
+        : "Pitch généré automatiquement selon le template IA.",
+      ...prev,
+    ]);
+    setSelectedAssets(new Set(["asset-1", "asset-2"]));
+    setMessageInput("");
+    setHasGeneratedPrototype(true);
+  };
+
+  const handleResetPrompt = () => {
+    setHasGeneratedPrototype(false);
+    setSummary(initialSummary);
+    setMessages(initialMessages);
+    setUpdates([
+      "Terrain généré avec variations de hauteur et occlusion atmosphérique",
+      "Cycle jour/nuit configuré avec intensité rougeoyante",
+    ]);
+    setSelectedAssets(new Set(["asset-1", "asset-2"]));
+    setMessageInput("");
+  };
+
   return (
     <div className="container mx-auto px-4 py-12 space-y-6">
       <div className="flex items-center gap-3 text-sm text-muted-foreground">
@@ -335,315 +437,463 @@ const GameBuilder = ({ onBack }: GameBuilderProps) => {
         <span>Studio Jeux Vidéo</span>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[360px_1fr]">
-        <div className="space-y-4">
-          <Card className="overflow-hidden border-border/50 bg-card/70 backdrop-blur">
-            <div className="relative h-40 w-full bg-gradient-to-br from-orange-400/70 via-amber-500/70 to-slate-900">
-              <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1521737711867-e3b97375f902?auto=format&fit=crop&w=900&q=80')] opacity-40 bg-cover bg-center" />
-              <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-background/40 to-transparent" />
-              <div className="absolute bottom-4 left-4 space-y-1">
-                <Badge className="bg-white/15 text-white backdrop-blur">Prototype</Badge>
-                <h2 className="text-2xl font-semibold text-white drop-shadow-md">{summary.title}</h2>
-                <p className="text-sm text-white/80 max-w-xs">{summary.theme}</p>
-              </div>
-            </div>
-            <div className="p-5 space-y-4">
-              <div>
-                <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                  Pitch
-                </h3>
-                <p className="text-sm leading-relaxed text-foreground/90 whitespace-pre-wrap">
-                  {summary.elevatorPitch}
-                </p>
-              </div>
-              <Separator className="bg-border/40" />
-              <div>
-                <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                  Objectifs clés
-                </h3>
-                <ul className="mt-2 space-y-2 text-sm text-foreground/90">
-                  {summary.objectives.map((objective, index) => (
-                    <li key={index} className="flex items-start gap-2">
-                      <Check className="h-4 w-4 mt-0.5 text-primary" />
-                      <span>{objective}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-              <Separator className="bg-border/40" />
-              <div>
-                <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                  Environnement
-                </h3>
-                <p className="text-sm text-foreground/90">{summary.environment}</p>
-              </div>
-            </div>
-          </Card>
-
+      {!hasGeneratedPrototype ? (
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
           <Card className="border-border/50 bg-card/70 backdrop-blur">
-            <div className="p-5 pb-3 flex items-center gap-2">
-              <Bot className="h-5 w-5 text-primary" />
-              <div>
-                <p className="text-sm font-semibold">Assistant de conception</p>
-                <p className="text-xs text-muted-foreground">
-                  Discute avec l'IA pour ajuster ton prototype
+            <form onSubmit={handlePromptGenerate} className="space-y-6 p-6">
+              <div className="space-y-2">
+                <h2 className="text-2xl font-semibold">Définis ton brief de jeu</h2>
+                <p className="text-sm text-muted-foreground">
+                  Décris l'expérience, les mécaniques et l'ambiance souhaitée. Tu peux également ajouter des références visuelles pour guider la génération.
                 </p>
               </div>
-            </div>
-            <Separator className="bg-border/40" />
-            <ScrollArea className="h-[320px] px-5 py-4">
-              <div className="space-y-4">
-                {messages.map((message) => (
-                  <div
-                    key={message.id}
-                    className={cn(
-                      "rounded-lg border px-4 py-3 text-sm leading-relaxed",
-                      message.role === "assistant"
-                        ? "bg-primary/10 border-primary/20"
-                        : "bg-background/80 border-border/60"
-                    )}
-                  >
-                    <div className="flex items-center gap-2 mb-2 text-xs font-medium text-muted-foreground">
-                      {message.role === "assistant" ? (
-                        <>
-                          <Bot className="h-3.5 w-3.5" />
-                          <span>Assistant</span>
-                        </>
-                      ) : (
-                        <>
-                          <MessageSquare className="h-3.5 w-3.5" />
-                          <span>Toi</span>
-                        </>
-                      )}
-                    </div>
-                    <p>{message.content}</p>
-                  </div>
-                ))}
-              </div>
-            </ScrollArea>
-            <Separator className="bg-border/40" />
-            <form onSubmit={handleSendMessage} className="p-4 space-y-3">
-              <Input
-                value={messageInput}
-                onChange={(event) => setMessageInput(event.target.value)}
-                placeholder="Décris une modification ou une nouvelle idée"
-              />
-              <Button type="submit" className="w-full gap-2">
-                <Send className="h-4 w-4" />
-                Envoyer et mettre à jour
-              </Button>
-            </form>
-          </Card>
-        </div>
 
-        <Card className="border-border/50 bg-card/70 backdrop-blur">
-          <Tabs defaultValue="preview" className="w-full">
-            <div className="border-b border-border/50 px-6 pt-6">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <h2 className="text-xl font-semibold">Espace de production</h2>
-                  <p className="text-sm text-muted-foreground">
-                    Prévisualise, ajoute des assets et consulte le code complet
-                  </p>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium" htmlFor="game-title">
+                    Titre du jeu
+                  </label>
+                  <Input
+                    id="game-title"
+                    placeholder="Ex: Echoes of Aurora"
+                    value={promptTitle}
+                    onChange={(event) => setPromptTitle(event.target.value)}
+                  />
                 </div>
-                <TabsList>
-                  <TabsTrigger value="preview">Preview</TabsTrigger>
-                  <TabsTrigger value="assets">Assets</TabsTrigger>
-                  <TabsTrigger value="code">Code</TabsTrigger>
-                </TabsList>
-              </div>
-            </div>
-
-            <TabsContent value="preview" className="p-6 pt-4">
-              <div className="grid gap-5 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
-                <div className="relative overflow-hidden rounded-2xl border border-border/40 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
-                  <div className="absolute inset-0 opacity-70 bg-[url('https://images.unsplash.com/photo-1526312426976-f4d754fa9bd6?auto=format&fit=crop&w=1200&q=80')] bg-cover bg-center mix-blend-overlay" />
-                  <div className="relative p-6 space-y-6">
-                    <div className="flex items-center justify-between">
-                      <Badge className="bg-primary/20 text-primary border border-primary/40">Mode Gameplay</Badge>
-                      <div className="flex items-center gap-2 text-xs uppercase tracking-widest text-white/70">
-                        <span>Keys</span>
-                        <div className="flex gap-1 text-white">
-                          <span>W</span>
-                          <span>A</span>
-                          <span>S</span>
-                          <span>D</span>
-                        </div>
-                      </div>
-                    </div>
-                    <div>
-                      <h3 className="text-2xl font-semibold text-white drop-shadow-md">{summary.title}</h3>
-                      <p className="mt-2 text-sm text-white/80 max-w-xl">
-                        {summary.elevatorPitch}
-                      </p>
-                    </div>
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <div className="rounded-xl border border-white/10 bg-white/5 p-4">
-                        <p className="text-xs uppercase tracking-wide text-white/60">Sélection actuelle</p>
-                        <ul className="mt-3 space-y-2 text-sm text-white/90">
-                          {selectedAssetDetails.map((asset) => (
-                            <li key={asset.id} className="flex items-center gap-2">
-                              <Boxes className="h-4 w-4 text-white/70" />
-                              <span>{asset.name}</span>
-                            </li>
-                          ))}
-                          {selectedAssetDetails.length === 0 && (
-                            <li className="text-white/60">Aucun asset actif pour le moment</li>
-                          )}
-                        </ul>
-                      </div>
-                      <div className="rounded-xl border border-white/10 bg-white/5 p-4">
-                        <p className="text-xs uppercase tracking-wide text-white/60">Mises à jour récentes</p>
-                        <ul className="mt-3 space-y-2 text-sm text-white/90">
-                          {updates.slice(0, 4).map((update, index) => (
-                            <li key={index} className="flex items-start gap-2">
-                              <Sparkles className="h-4 w-4 text-white/70 mt-0.5" />
-                              <span>{update}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <Card className="border-border/40 bg-background/80">
-                    <div className="p-4 space-y-3">
-                      <h4 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                        Résumé du build
-                      </h4>
-                      <p className="text-sm leading-relaxed text-foreground/80">
-                        Prototype jouable généré avec IA. Comprend un cycle dynamique, un système de compagnons et des vagues d'ennemis scénarisées.
-                        Utilise un rendu low-poly optimisé pour navigateur.
-                      </p>
-                    </div>
-                  </Card>
-                  <Card className="border-border/40 bg-background/80">
-                    <div className="p-4 space-y-3">
-                      <h4 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                        Actions rapides
-                      </h4>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        <Button variant="outline" className="justify-start gap-2">
-                          <Sparkles className="h-4 w-4" />
-                          Régénérer la scène
-                        </Button>
-                        <Button variant="outline" className="justify-start gap-2">
-                          <Boxes className="h-4 w-4" />
-                          Importer un asset
-                        </Button>
-                        <Button variant="outline" className="justify-start gap-2">
-                          <Plus className="h-4 w-4" />
-                          Ajouter un événement
-                        </Button>
-                        <Button variant="outline" className="justify-start gap-2">
-                          <MessageSquare className="h-4 w-4" />
-                          Ouvrir le changelog
-                        </Button>
-                      </div>
-                    </div>
-                  </Card>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium" htmlFor="game-theme">
+                    Genre / ambiance
+                  </label>
+                  <Input
+                    id="game-theme"
+                    placeholder="Ex: Aventure narrative futuriste"
+                    value={promptTheme}
+                    onChange={(event) => setPromptTheme(event.target.value)}
+                  />
                 </div>
               </div>
-            </TabsContent>
 
-            <TabsContent value="assets" className="p-6 space-y-6">
-              <div className="grid gap-4 md:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
-                <div className="space-y-4">
-                  <div>
-                    <h3 className="text-lg font-semibold">Bibliothèque d'assets</h3>
-                    <p className="text-sm text-muted-foreground">
-                      Active ou crée des ressources 3D et visuelles pour ton monde
-                    </p>
-                  </div>
-                  <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                    {assets.map((asset) => (
+              <div className="space-y-2">
+                <label className="text-sm font-medium" htmlFor="game-description">
+                  Description détaillée
+                </label>
+                <Textarea
+                  id="game-description"
+                  value={promptDescription}
+                  onChange={(event) => setPromptDescription(event.target.value)}
+                  placeholder="Décris le gameplay, l'histoire, les objectifs et le ton général que tu imagines."
+                  className="min-h-[180px]"
+                />
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium">Références visuelles</label>
+                  <span className="text-xs text-muted-foreground">Ajoute des URLs d'images (JPEG/PNG/GIF)</span>
+                </div>
+                <div className="flex flex-col gap-3 sm:flex-row">
+                  <Input
+                    placeholder="https://..."
+                    value={referenceInput}
+                    onChange={(event) => setReferenceInput(event.target.value)}
+                  />
+                  <Button type="button" onClick={handleAddReferenceImage} className="gap-2">
+                    <ImageIcon className="h-4 w-4" />
+                    Ajouter
+                  </Button>
+                </div>
+                {referenceImages.length > 0 ? (
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {referenceImages.map((reference, index) => (
                       <div
-                        key={asset.id}
-                        className={cn(
-                          "rounded-2xl border bg-background/70 p-4 shadow-sm transition-all",
-                          selectedAssets.has(asset.id)
-                            ? "border-primary/60 ring-2 ring-primary/20"
-                            : "border-border/50"
-                        )}
-                      >
-                        <div className={cn("h-28 w-full rounded-xl bg-gradient-to-br flex items-center justify-center text-base font-semibold text-white", asset.gradient)}>
-                          {asset.name}
-                        </div>
-                        <div className="mt-4 space-y-2">
-                          <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-muted-foreground">
-                            <Badge variant="secondary" className="bg-secondary/20 text-secondary-foreground/90">
-                              {asset.category}
-                            </Badge>
-                          </div>
-                          <p className="text-sm text-muted-foreground">{asset.description}</p>
-                          <Button
-                            type="button"
-                            variant={selectedAssets.has(asset.id) ? "default" : "outline"}
-                            className="w-full gap-2"
-                            onClick={() => handleToggleAsset(asset.id)}
-                          >
-                          <Boxes className="h-4 w-4" />
-                            {selectedAssets.has(asset.id) ? "Déployer dans la scène" : "Activer l'asset"}
-                          </Button>
-                        </div>
+                        key={reference + index}
+                        className="group relative overflow-hidden rounded-xl border border-border/60">
+                        <img
+                          src={reference}
+                          alt={`Référence ${index + 1}`}
+                          className="h-36 w-full object-cover"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveReferenceImage(index)}
+                          className="absolute right-2 top-2 inline-flex h-8 w-8 items-center justify-center rounded-full bg-background/80 text-foreground shadow-md opacity-0 transition-opacity group-hover:opacity-100"
+                          aria-label="Supprimer la référence">
+                          <X className="h-4 w-4" />
+                        </button>
                       </div>
                     ))}
                   </div>
-                </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Aucune image ajoutée pour l'instant. Tu peux coller des liens d'artworks, captures ou moodboards.
+                  </p>
+                )}
+              </div>
 
-                <Card className="border-border/50 bg-background/80 h-fit">
-                  <div className="p-5 space-y-4">
-                    <h4 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                      Générer un nouvel asset
-                    </h4>
-                    <Textarea
-                      placeholder="Ex: Statue totemique en pierre avec lumières turquoise"
-                      value={assetPrompt}
-                      onChange={(event) => setAssetPrompt(event.target.value)}
-                      className="min-h-[140px]"
-                    />
-                    <Button type="button" className="w-full gap-2" onClick={handleGenerateAsset}>
-                      <Sparkles className="h-4 w-4" />
-                      Générer depuis le prompt
-                    </Button>
-                    <Separator className="bg-border/40" />
-                    <div className="space-y-2 text-sm text-muted-foreground">
-                      <p>Suggestions rapides :</p>
-                      <div className="flex flex-wrap gap-2">
-                        {["Portail ancestral", "Drone messager", "Falaise lumineuse"].map((suggestion) => (
-                          <Button
-                            key={suggestion}
-                            type="button"
-                            variant="secondary"
-                            className="bg-secondary/20 text-secondary-foreground/80"
-                            onClick={() => setAssetPrompt(suggestion)}
-                          >
-                            {suggestion}
-                          </Button>
-                        ))}
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="text-sm text-muted-foreground">
+                  Conseil : détaille les boucles de gameplay principales et les sensations recherchées pour un résultat plus précis.
+                </div>
+                <Button type="submit" className="gap-2">
+                  <Sparkles className="h-4 w-4" />
+                  Générer le prototype
+                </Button>
+              </div>
+            </form>
+          </Card>
+
+          <Card className="border-border/50 bg-card/60 backdrop-blur">
+            <div className="space-y-5 p-6">
+              <div className="space-y-2">
+                <h3 className="text-lg font-semibold">Brief efficace</h3>
+                <p className="text-sm text-muted-foreground">
+                  Un bon prompt décrit le contexte narratif, les mécaniques clés, l'identité visuelle et les inspirations. Inspires-toi de l'exemple ci-dessous.
+                </p>
+              </div>
+              <div className="rounded-xl border border-border/60 bg-background/60 p-5 space-y-3 text-sm text-foreground/90">
+                <p className="font-medium">Exemple :</p>
+                <p>
+                  « Jeu d'exploration coopératif dans des ruines sous-marines bioluminescentes. Les joueurs contrôlent des plongeurs augmentés qui réparent des artefacts anciens tout en échappant à une créature abyssale. Style visuel : low-poly lumineux, couleurs turquoise et corail. »
+                </p>
+                <p className="text-muted-foreground">
+                  Références : concept art de villes sous-marines, interface holographique minimaliste, créatures abyssales translucides.
+                </p>
+              </div>
+            </div>
+          </Card>
+        </div>
+      ) : (
+        <div className="grid gap-6 lg:grid-cols-[360px_1fr]">
+          <div className="space-y-4">
+            <Card className="overflow-hidden border-border/50 bg-card/70 backdrop-blur">
+              <div className="relative h-40 w-full bg-gradient-to-br from-orange-400/70 via-amber-500/70 to-slate-900">
+                <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1521737711867-e3b97375f902?auto=format&fit=crop&w=900&q=80')] opacity-40 bg-cover bg-center" />
+                <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-background/40 to-transparent" />
+                <div className="absolute bottom-4 left-4 space-y-1">
+                  <Badge className="bg-white/15 text-white backdrop-blur">Prototype</Badge>
+                  <h2 className="text-2xl font-semibold text-white drop-shadow-md">{summary.title}</h2>
+                  <p className="text-sm text-white/80 max-w-xs">{summary.theme}</p>
+                </div>
+              </div>
+              <div className="p-5 space-y-4">
+                <div>
+                  <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                    Pitch
+                  </h3>
+                  <p className="text-sm leading-relaxed text-foreground/90 whitespace-pre-wrap">
+                    {summary.elevatorPitch}
+                  </p>
+                </div>
+                <Separator className="bg-border/40" />
+                <div>
+                  <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                    Objectifs clés
+                  </h3>
+                  <ul className="mt-2 space-y-2 text-sm text-foreground/90">
+                    {summary.objectives.map((objective, index) => (
+                      <li key={index} className="flex items-start gap-2">
+                        <Check className="h-4 w-4 mt-0.5 text-primary" />
+                        <span>{objective}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <Separator className="bg-border/40" />
+                <div>
+                  <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                    Environnement
+                  </h3>
+                  <p className="text-sm text-foreground/90">{summary.environment}</p>
+                </div>
+              </div>
+            </Card>
+
+            <Card className="border-border/50 bg-card/70 backdrop-blur">
+              <div className="p-5 pb-3 flex items-center gap-2">
+                <Bot className="h-5 w-5 text-primary" />
+                <div>
+                  <p className="text-sm font-semibold">Assistant de conception</p>
+                  <p className="text-xs text-muted-foreground">
+                    Discute avec l'IA pour ajuster ton prototype
+                  </p>
+                </div>
+              </div>
+              <Separator className="bg-border/40" />
+              <ScrollArea className="h-[320px] px-5 py-4">
+                <div className="space-y-4">
+                  {messages.map((message) => (
+                    <div
+                      key={message.id}
+                      className={cn(
+                        "rounded-lg border px-4 py-3 text-sm leading-relaxed",
+                        message.role === "assistant"
+                          ? "bg-primary/10 border-primary/20"
+                          : "bg-background/80 border-border/60"
+                      )}>
+                      <div className="flex items-center gap-2 mb-2 text-xs font-medium text-muted-foreground">
+                        {message.role === "assistant" ? (
+                          <>
+                            <Bot className="h-3.5 w-3.5" />
+                            <span>Assistant</span>
+                          </>
+                        ) : (
+                          <>
+                            <MessageSquare className="h-3.5 w-3.5" />
+                            <span>Toi</span>
+                          </>
+                        )}
+                      </div>
+                      <p>{message.content}</p>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+              <Separator className="bg-border/40" />
+              <form onSubmit={handleSendMessage} className="p-4 space-y-3">
+                <Input
+                  value={messageInput}
+                  onChange={(event) => setMessageInput(event.target.value)}
+                  placeholder="Décris une modification ou une nouvelle idée"
+                />
+                <Button type="submit" className="w-full gap-2">
+                  <Send className="h-4 w-4" />
+                  Envoyer et mettre à jour
+                </Button>
+              </form>
+            </Card>
+          </div>
+
+          <Card className="border-border/50 bg-card/70 backdrop-blur">
+            <Tabs defaultValue="preview" className="w-full">
+              <div className="border-b border-border/50 px-6 pt-6">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <h2 className="text-xl font-semibold">Espace de production</h2>
+                    <p className="text-sm text-muted-foreground">
+                      Prévisualise, ajoute des assets et consulte le code complet
+                    </p>
+                  </div>
+                  <TabsList>
+                    <TabsTrigger value="preview">Preview</TabsTrigger>
+                    <TabsTrigger value="assets">Assets</TabsTrigger>
+                    <TabsTrigger value="code">Code</TabsTrigger>
+                  </TabsList>
+                </div>
+              </div>
+
+              <TabsContent value="preview" className="p-6 pt-4">
+                <div className="grid gap-5 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
+                  <div className="relative overflow-hidden rounded-2xl border border-border/40 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+                    <div className="absolute inset-0 opacity-70 bg-[url('https://images.unsplash.com/photo-1526312426976-f4d754fa9bd6?auto=format&fit=crop&w=1200&q=80')] bg-cover bg-center mix-blend-overlay" />
+                    <div className="relative p-6 space-y-6">
+                      <div className="flex items-center justify-between">
+                        <Badge className="bg-primary/20 text-primary border border-primary/40">Mode Gameplay</Badge>
+                        <div className="flex items-center gap-2 text-xs uppercase tracking-widest text-white/70">
+                          <span>Keys</span>
+                          <div className="flex gap-1 text-white">
+                            <span>W</span>
+                            <span>A</span>
+                            <span>S</span>
+                            <span>D</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div>
+                        <h3 className="text-2xl font-semibold text-white drop-shadow-md">{summary.title}</h3>
+                        <p className="mt-2 text-sm text-white/80 max-w-xl">
+                          {summary.elevatorPitch}
+                        </p>
+                      </div>
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+                          <p className="text-xs uppercase tracking-wide text-white/60">Sélection actuelle</p>
+                          <ul className="mt-3 space-y-2 text-sm text-white/90">
+                            {selectedAssetDetails.map((asset) => (
+                              <li key={asset.id} className="flex items-center gap-2">
+                                <Boxes className="h-4 w-4 text-white/70" />
+                                <span>{asset.name}</span>
+                              </li>
+                            ))}
+                            {selectedAssetDetails.length === 0 && (
+                              <li className="text-white/60">Aucun asset actif pour le moment</li>
+                            )}
+                          </ul>
+                        </div>
+                        <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+                          <p className="text-xs uppercase tracking-wide text-white/60">Mises à jour récentes</p>
+                          <ul className="mt-3 space-y-2 text-sm text-white/90">
+                            {updates.slice(0, 4).map((update, index) => (
+                              <li key={index} className="flex items-start gap-2">
+                                <Sparkles className="h-4 w-4 text-white/70 mt-0.5" />
+                                <span>{update}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </Card>
-              </div>
-            </TabsContent>
 
-            <TabsContent value="code" className="p-6">
-              <div className="space-y-4">
-                <div>
-                  <h3 className="text-lg font-semibold">Code du prototype généré</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Inspecte l'intégralité du code exportable pour le jeu WebGL.
-                  </p>
+                  <div className="space-y-4">
+                    <Card className="border-border/40 bg-background/80">
+                      <div className="p-4 space-y-3">
+                        <h4 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                          Résumé du build
+                        </h4>
+                        <p className="text-sm leading-relaxed text-foreground/80">
+                          Prototype jouable généré avec IA. Comprend un cycle dynamique, un système de compagnons et des vagues d'ennemis scénarisées.
+                          Utilise un rendu low-poly optimisé pour navigateur.
+                        </p>
+                      </div>
+                    </Card>
+                    {referenceImages.length > 0 && (
+                      <Card className="border-border/40 bg-background/80">
+                        <div className="p-4 space-y-3">
+                          <h4 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                            Références importées
+                          </h4>
+                          <div className="grid gap-3 sm:grid-cols-2">
+                            {referenceImages.map((reference, index) => (
+                              <div
+                                key={reference + index}
+                                className="overflow-hidden rounded-lg border border-border/60">
+                                <img
+                                  src={reference}
+                                  alt={`Référence ${index + 1}`}
+                                  className="h-28 w-full object-cover"
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </Card>
+                    )}
+                    <Card className="border-border/40 bg-background/80">
+                      <div className="p-4 space-y-3">
+                        <h4 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                          Actions rapides
+                        </h4>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          <Button variant="outline" className="justify-start gap-2">
+                            <Sparkles className="h-4 w-4" />
+                            Régénérer la scène
+                          </Button>
+                          <Button variant="outline" className="justify-start gap-2">
+                            <Boxes className="h-4 w-4" />
+                            Importer un asset
+                          </Button>
+                          <Button variant="outline" className="justify-start gap-2">
+                            <Plus className="h-4 w-4" />
+                            Ajouter un événement
+                          </Button>
+                          <Button variant="outline" className="justify-start gap-2">
+                            <MessageSquare className="h-4 w-4" />
+                            Ouvrir le changelog
+                          </Button>
+                        </div>
+                      </div>
+                    </Card>
+                    <Button variant="ghost" className="w-full justify-center" onClick={handleResetPrompt}>
+                      Modifier le brief initial
+                    </Button>
+                  </div>
                 </div>
-                <CodeViewer code={sampleCode} category="game" />
-              </div>
-            </TabsContent>
-          </Tabs>
-        </Card>
-      </div>
+              </TabsContent>
+
+              <TabsContent value="assets" className="p-6 space-y-6">
+                <div className="grid gap-4 md:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
+                  <div className="space-y-4">
+                    <div>
+                      <h3 className="text-lg font-semibold">Bibliothèque d'assets</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Active ou crée des ressources 3D et visuelles pour ton monde
+                      </p>
+                    </div>
+                    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                      {assets.map((asset) => (
+                        <div
+                          key={asset.id}
+                          className={cn(
+                            "rounded-2xl border bg-background/70 p-4 shadow-sm transition-all",
+                            selectedAssets.has(asset.id)
+                              ? "border-primary/60 ring-2 ring-primary/20"
+                              : "border-border/50"
+                          )}>
+                          <div className={cn("h-28 w-full rounded-xl bg-gradient-to-br flex items-center justify-center text-base font-semibold text-white", asset.gradient)}>
+                            {asset.name}
+                          </div>
+                          <div className="mt-4 space-y-2">
+                            <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-muted-foreground">
+                              <Badge variant="secondary" className="bg-secondary/20 text-secondary-foreground/90">
+                                {asset.category}
+                              </Badge>
+                            </div>
+                            <p className="text-sm text-muted-foreground">{asset.description}</p>
+                            <Button
+                              type="button"
+                              variant={selectedAssets.has(asset.id) ? "default" : "outline"}
+                              className="w-full gap-2"
+                              onClick={() => handleToggleAsset(asset.id)}>
+                              <Boxes className="h-4 w-4" />
+                              {selectedAssets.has(asset.id) ? "Déployer dans la scène" : "Activer l'asset"}
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <Card className="border-border/50 bg-background/80 h-fit">
+                    <div className="p-5 space-y-4">
+                      <h4 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                        Générer un nouvel asset
+                      </h4>
+                      <Textarea
+                        placeholder="Ex: Statue totemique en pierre avec lumières turquoise"
+                        value={assetPrompt}
+                        onChange={(event) => setAssetPrompt(event.target.value)}
+                        className="min-h-[140px]"
+                      />
+                      <Button type="button" className="w-full gap-2" onClick={handleGenerateAsset}>
+                        <Sparkles className="h-4 w-4" />
+                        Générer depuis le prompt
+                      </Button>
+                      <Separator className="bg-border/40" />
+                      <div className="space-y-2 text-sm text-muted-foreground">
+                        <p>Suggestions rapides :</p>
+                        <div className="flex flex-wrap gap-2">
+                          {["Portail ancestral", "Drone messager", "Falaise lumineuse"].map((suggestion) => (
+                            <Button
+                              key={suggestion}
+                              type="button"
+                              variant="secondary"
+                              className="bg-secondary/20 text-secondary-foreground/80"
+                              onClick={() => setAssetPrompt(suggestion)}>
+                              {suggestion}
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </Card>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="code" className="p-6">
+                <div className="space-y-4">
+                  <div>
+                    <h3 className="text-lg font-semibold">Code du prototype généré</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Inspecte l'intégralité du code exportable pour le jeu WebGL.
+                    </p>
+                  </div>
+                  <CodeViewer code={sampleCode} category="game" />
+                </div>
+              </TabsContent>
+            </Tabs>
+          </Card>
+        </div>
+      )}
     </div>
   );
 };
