@@ -8,8 +8,15 @@ import ProjectSandpack from "@/components/ProjectSandpack";
 import GenerationPlanView from "@/components/GenerationPlanView";
 import GenerationProgress from "@/components/GenerationProgress";
 import type { GeneratedProject } from "@/lib/project-generator";
-import { createProjectPlan, generateProjectFromPrompt } from "@/lib/project-generator";
-import type { GenerationPlan, PlanExecutionStep, PlanStepStatus } from "@/types/plan";
+import {
+  createProjectPlan,
+  generateProjectFromPrompt,
+} from "@/lib/project-generator";
+import type {
+  GenerationPlan,
+  PlanExecutionStep,
+  PlanStepStatus,
+} from "@/types/plan";
 import { cn } from "@/lib/utils";
 
 export type SiteAppMode = "website" | "application";
@@ -48,7 +55,10 @@ const HINTS: Record<SiteAppMode, string[]> = {
   ],
 };
 
-const LABELS: Record<SiteAppMode, { title: string; description: string; generate: string }> = {
+const LABELS: Record<
+  SiteAppMode,
+  { title: string; description: string; generate: string }
+> = {
   website: {
     title: "Générateur de site web",
     description:
@@ -77,7 +87,8 @@ const createExecutionSteps = (plan: GenerationPlan): PlanExecutionStep[] => {
       {
         id: "initialisation",
         title: "Initialiser le projet",
-        description: "Préparer la structure Vite et les fichiers React de base.",
+        description:
+          "Préparer la structure Vite et les fichiers React de base.",
         deliverable: "Projet React opérationnel",
         section: plan.title,
         status: "pending",
@@ -135,117 +146,122 @@ const SiteAppGenerator = ({ mode }: SiteAppGeneratorProps) => {
 
   const handleGeneratePlan = useCallback(() => {
     if (!prompt.trim()) {
-      toast.error("Ajoute quelques instructions avant de lancer la génération.");
+      toast.error(
+        "Ajoute quelques instructions avant de lancer la génération.",
+      );
       return;
     }
 
-    try {
-      setIsGenerating(true);
-      clearGeneration();
-      const generatedPlan = createProjectPlan(prompt, mode);
-      setPlan(generatedPlan);
-      setPhase("planning");
-      setStatusMessage("Plan généré · vérifie les étapes avant de lancer la génération.");
-      setStatusHistory(["Plan proposé à partir du brief"]);
-      toast.success("Plan d'action généré !");
-    } catch (error) {
-      console.error("Erreur pendant la génération du plan", error);
-      toast.error("Impossible de créer un plan pour ce brief. Réessaie avec plus de détails.");
-    } finally {
-      setIsGenerating(false);
-    }
+    clearGeneration();
+    setIsGenerating(true);
+
+    const run = async () => {
+      try {
+        const generatedPlan = await createProjectPlan(prompt, mode);
+        setPlan(generatedPlan);
+        setPhase("planning");
+        setStatusMessage(
+          "Plan généré · vérifie les étapes avant de lancer la génération.",
+        );
+        setStatusHistory(["Plan proposé à partir du brief"]);
+        toast.success("Plan d'action généré !");
+      } catch (error) {
+        console.error("Erreur pendant la génération du plan", error);
+        toast.error(
+          "Impossible de créer un plan pour ce brief. Réessaie avec plus de détails.",
+        );
+        setPhase("idle");
+      } finally {
+        setIsGenerating(false);
+      }
+    };
+
+    void run();
   }, [clearGeneration, mode, prompt]);
 
   const handleConfirmPlan = useCallback(() => {
     if (!plan) return;
 
-    try {
-      setIsGenerating(true);
-      setPhase("generating");
-      const steps = createExecutionSteps(plan);
-      setExecutionSteps(steps);
-      setStatusHistory((previous) => [...previous, "Plan validé · lancement de la génération"]);
-      setStatusMessage("Initialisation du projet");
+    clearGeneration();
+    setIsGenerating(true);
+    setPhase("generating");
+    const steps = createExecutionSteps(plan);
+    setExecutionSteps(steps);
+    setStatusHistory((previous) => [
+      ...previous,
+      "Plan validé · lancement de la génération",
+    ]);
+    setStatusMessage("Initialisation du projet");
 
-      const generated = generateProjectFromPrompt(prompt, mode);
-      setProject({ ...generated, files: [] });
-      setActiveFile(undefined);
+    clearTimers();
 
-      clearTimers();
+    steps.forEach((step, index) => {
+      const startDelay = index * 1200;
+      const endDelay = startDelay + 900;
 
-      const filesPerStep = Math.max(1, Math.ceil(generated.files.length / steps.length));
-      let fileIndex = 0;
-
-      steps.forEach((step, index) => {
-        const startDelay = index * 1200;
-        const duration = 900;
-
-        const startTimer = window.setTimeout(() => {
-          setExecutionSteps((previous) =>
-            previous.map((entry, entryIndex) => {
-              if (entryIndex < index) {
-                return { ...entry, status: "done" };
-              }
-              if (entryIndex === index) {
-                return { ...entry, status: "active" };
-              }
-              return entry;
-            }),
-          );
-          setStatusMessage(`${step.section} · ${step.title}`);
-          setStatusHistory((previous) => [...previous, `▶️ ${step.title}`]);
-        }, startDelay);
-
-        const endTimer = window.setTimeout(() => {
-          setExecutionSteps((previous) =>
-            previous.map((entry, entryIndex) =>
-              entryIndex === index ? { ...entry, status: "done" } : entry,
-            ),
-          );
-
-          const chunk = generated.files.slice(fileIndex, fileIndex + filesPerStep);
-          fileIndex += chunk.length;
-
-          if (chunk.length) {
-            setProject((previous) =>
-              previous ? { ...previous, files: [...previous.files, ...chunk] } : previous,
-            );
-            setActiveFile((current) => current ?? chunk[0].path);
-          }
-
-          setStatusHistory((previous) => [...previous, `✅ ${step.title}`]);
-
-          if (index === steps.length - 1) {
-            const remaining = generated.files.slice(fileIndex);
-            if (remaining.length) {
-              setProject((previous) =>
-                previous ? { ...previous, files: [...previous.files, ...remaining] } : previous,
-              );
+      const startTimer = window.setTimeout(() => {
+        setExecutionSteps((previous) =>
+          previous.map((entry, entryIndex) => {
+            if (entryIndex < index) {
+              return { ...entry, status: "done" };
             }
+            if (entryIndex === index) {
+              return { ...entry, status: "active" };
+            }
+            return entry;
+          }),
+        );
+        setStatusMessage(`${step.section} · ${step.title}`);
+        setStatusHistory((previous) => [...previous, `▶️ ${step.title}`]);
+      }, startDelay);
 
-            setProject(generated);
-            setActiveFile((current) => current ?? generated.files[0]?.path);
-            setPhase("complete");
-            setIsGenerating(false);
-            setStatusMessage("Génération terminée");
-            clearTimers();
-            toast.success(
-              mode === "website"
-                ? "Projet de site React + Vite généré !"
-                : "Prototype d'application React généré !",
-            );
-          }
-        }, startDelay + duration);
+      const endTimer = window.setTimeout(() => {
+        setExecutionSteps((previous) =>
+          previous.map((entry, entryIndex) =>
+            entryIndex === index ? { ...entry, status: "done" } : entry,
+          ),
+        );
+        setStatusHistory((previous) => [...previous, `✅ ${step.title}`]);
+      }, endDelay);
 
-        timersRef.current.push(startTimer, endTimer);
-      });
-    } catch (error) {
-      console.error("Erreur pendant la génération du projet", error);
-      toast.error("Impossible de générer le projet. Réessaie avec un prompt différent.");
-      setIsGenerating(false);
-      setPhase("planning");
-    }
-  }, [clearTimers, mode, plan, prompt]);
+      timersRef.current.push(startTimer, endTimer);
+    });
+
+    const runGeneration = async () => {
+      try {
+        const generated = await generateProjectFromPrompt({
+          prompt,
+          kind: mode,
+          plan,
+        });
+        setProject(generated);
+        setActiveFile(generated.files[0]?.path);
+        setPhase("complete");
+        setStatusMessage("Génération terminée");
+        setStatusHistory((previous) => [...previous, "✨ Génération terminée"]);
+        toast.success(
+          mode === "website"
+            ? "Projet de site React + Vite généré !"
+            : "Prototype d'application React généré !",
+        );
+      } catch (error) {
+        console.error("Erreur pendant la génération du projet", error);
+        toast.error("Impossible de générer le projet. Réessaie plus tard.");
+        setPhase("planning");
+      } finally {
+        setIsGenerating(false);
+      }
+    };
+
+    void runGeneration();
+  }, [
+    clearGeneration,
+    clearTimers,
+    generateProjectFromPrompt,
+    mode,
+    plan,
+    prompt,
+  ]);
 
   const handleExport = useCallback(async () => {
     if (!project) return;
@@ -325,7 +341,11 @@ const SiteAppGenerator = ({ mode }: SiteAppGeneratorProps) => {
                 plan={plan}
                 onConfirm={handleConfirmPlan}
                 onEdit={handleEditPlan}
-                confirmLabel={mode === "website" ? "Lancer la génération du site" : "Lancer la génération de l'application"}
+                confirmLabel={
+                  mode === "website"
+                    ? "Lancer la génération du site"
+                    : "Lancer la génération de l'application"
+                }
                 isConfirming={isGenerating && phase === "planning"}
               />
             ) : (
@@ -351,7 +371,10 @@ const SiteAppGenerator = ({ mode }: SiteAppGeneratorProps) => {
           files={projectFiles}
           activeFile={activeFile}
           isGenerating={phase === "generating"}
-          className={cn("lg:col-span-1", isFileTreeCollapsed && "lg:col-span-2")}
+          className={cn(
+            "lg:col-span-1",
+            isFileTreeCollapsed && "lg:col-span-2",
+          )}
           isFileTreeCollapsed={isFileTreeCollapsed}
           onExpandFileTree={() => setIsFileTreeCollapsed(false)}
         />
