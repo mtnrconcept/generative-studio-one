@@ -1,6 +1,7 @@
 import type { GeneratedResult } from "@/types/result";
 import type { GenerationPlan, PlanSection } from "@/types/plan";
 import type { ImageAspectRatio, ImageGenerationSettings } from "@/types/image";
+import { supabase } from "@/integrations/supabase/client";
 
 export type CreativeTool = "image" | "music" | "agent" | "game";
 
@@ -170,6 +171,45 @@ const describeStylePreset = (settings?: ImageGenerationSettings) => {
     return "style libre équilibré";
   }
   return STYLE_PRESET_LABELS[settings.stylePreset] ?? settings.stylePreset;
+};
+
+const buildImageSettingsInstructions = (settings: ImageGenerationSettings) => {
+  const ratioDetails = resolveAspectRatioDetails(settings);
+  const styleDescription = describeStylePreset(settings);
+  const advanced = settings.advanced;
+  const instructions: string[] = [
+    `Format demandé : ${ratioDetails.label} ${ratioDetails.readable}.`,
+    `Nombre de variations : ${settings.imageCount}.`,
+    `Style artistique : ${styleDescription}.`,
+  ];
+
+  if (settings.promptEnhance) {
+    instructions.push("Utilise un prompt descriptif riche et détaillé.");
+  } else {
+    instructions.push("Interprète le prompt tel quel, sans extrapolation inutile.");
+  }
+
+  if (advanced.upscale) {
+    instructions.push("Prévoyez une passe d'upscale pour maximiser les détails.");
+  }
+  if (advanced.highResolution) {
+    instructions.push("Optimise pour un rendu haute résolution.");
+  }
+
+  instructions.push(`Paramètres souhaités : guidance ${advanced.guidanceScale} · steps ${advanced.stepCount}.`);
+
+  if (advanced.seed.trim()) {
+    instructions.push(`Conserve le seed ${advanced.seed.trim()} si possible.`);
+  }
+
+  if (advanced.negativePrompt.trim()) {
+    instructions.push(`Évite absolument : ${advanced.negativePrompt.trim()}.`);
+  }
+
+  return [
+    "Contraintes techniques :",
+    ...instructions.map((line) => `- ${line}`),
+  ].join("\n");
 };
 
 const createImagePlan = (
@@ -1204,6 +1244,52 @@ const generateGameResult = (options: GenerationOptions): GeneratedResult => {
     version,
     modification,
     content,
+  };
+};
+
+export const requestCreativeResult = async (
+  tool: CreativeTool,
+  options: GenerationOptions,
+): Promise<GeneratedResult> => {
+  if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY) {
+    throw new Error("Configuration Supabase manquante");
+  }
+
+  const { prompt, version, modification, previous, imageSettings } = options;
+  const shouldAppendImageSettings = tool === "image" && imageSettings;
+  const enrichedPrompt = shouldAppendImageSettings
+    ? [prompt.trim(), buildImageSettingsInstructions(imageSettings!)].filter(Boolean).join("\n\n")
+    : prompt;
+
+  const { data, error } = await supabase.functions.invoke("generate-content", {
+    body: {
+      prompt: enrichedPrompt,
+      category: tool,
+      modification: modification?.trim() ? modification : undefined,
+      existingContent: previous?.content?.trim() ? previous.content : undefined,
+    },
+  });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const payload = data as Partial<GeneratedResult>;
+
+  return {
+    type: typeof payload?.type === "string" ? payload.type : tool === "image" ? "image" : "text",
+    category: typeof payload?.category === "string" ? payload.category : tool,
+    content: typeof payload?.content === "string" ? payload.content : undefined,
+    preview: typeof payload?.preview === "string" ? payload.preview : undefined,
+    code: typeof payload?.code === "string" ? payload.code : undefined,
+    files: Array.isArray(payload?.files) ? payload.files : undefined,
+    instructions: typeof payload?.instructions === "string" ? payload.instructions : undefined,
+    projectName: typeof payload?.projectName === "string" ? payload.projectName : undefined,
+    projectType: typeof payload?.projectType === "string" ? payload.projectType : undefined,
+    prompt,
+    version,
+    modification,
+    imageSettings: tool === "image" ? imageSettings : undefined,
   };
 };
 

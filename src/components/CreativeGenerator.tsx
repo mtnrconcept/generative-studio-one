@@ -15,6 +15,7 @@ import {
   createCreativePlan,
   generateCreativeResult,
   getCreativeToolLabel,
+  requestCreativeResult,
   type CreativeTool,
 } from "@/lib/content-generators";
 import type { ImageGenerationSettings as ImageSettings } from "@/types/image";
@@ -201,25 +202,63 @@ const CreativeGenerator = ({ tool, description }: CreativeGeneratorProps) => {
         if (index === steps.length - 1) {
           const version = history.length + 1;
           const basePrompt = pendingPrompt || plan.summary;
-          const generated = generateCreativeResult(tool, {
-            prompt: basePrompt,
-            version,
-            modification: pendingModification,
-            previous: result,
-            imageSettings: isImageTool ? imageSettings : undefined,
-          });
+          const modification = pendingModification;
+          setStatusHistory((previous) => [...previous, "🛰️ Synthèse finale"]);
+          setStatusMessage("Synthèse finale");
 
-          setHistory((previous) => [...previous, generated]);
-          setResult(generated);
-          setLastPrompt(basePrompt);
-          setPhase("complete");
-          setPlan(plan);
-          setIsLoading(false);
-          setStatusMessage("Génération terminée");
-          toast.success(pendingModification ? "Révision générée !" : "Création générée !");
-          setPendingPrompt("");
-          setPendingModification(undefined);
-          clearTimers();
+          const runGeneration = async () => {
+            let didFail = false;
+
+            try {
+              const generated = isImageTool
+                ? await requestCreativeResult(tool, {
+                    prompt: basePrompt,
+                    version,
+                    modification,
+                    previous: result,
+                    imageSettings,
+                  })
+                : generateCreativeResult(tool, {
+                    prompt: basePrompt,
+                    version,
+                    modification,
+                    previous: result,
+                    imageSettings: isImageTool ? imageSettings : undefined,
+                  });
+
+              setHistory((previous) => [...previous, generated]);
+              setResult(generated);
+              setLastPrompt(basePrompt);
+              setPhase("complete");
+              setPlan(plan);
+              setStatusHistory((previous) => [...previous, "✨ Contenu final prêt"]);
+              setStatusMessage("Génération terminée");
+              toast.success(modification ? "Révision générée !" : "Création générée !");
+            } catch (error) {
+              console.error("Erreur lors de la génération", error);
+              didFail = true;
+              setPhase("planning");
+              setStatusHistory((previous) => [...previous, "❌ Échec de la génération"]);
+              setStatusMessage("Erreur lors de la génération");
+              toast.error(
+                isImageTool
+                  ? "Impossible de générer l'image. Vérifie ta configuration et réessaie."
+                  : "Impossible de générer le contenu. Réessaie."
+              );
+            } finally {
+              setIsLoading(false);
+              if (didFail) {
+                setPendingPrompt(basePrompt);
+                setPendingModification(modification);
+              } else {
+                setPendingPrompt("");
+                setPendingModification(undefined);
+              }
+              clearTimers();
+            }
+          };
+
+          void runGeneration();
         }
       }, endDelay);
 
