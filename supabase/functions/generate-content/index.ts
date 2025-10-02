@@ -268,7 +268,7 @@ serve(async (req) => {
 
     switch (category) {
       case 'image':
-        systemPrompt = "Générez une image de haute qualité basée sur la description de l'utilisateur. Soyez créatif et détaillé.";
+        systemPrompt = "Generate exactly what the user describes.";
         useImageGeneration = true;
         break;
 
