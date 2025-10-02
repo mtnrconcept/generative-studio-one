@@ -20,6 +20,8 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import CodeViewer from "./CodeViewer";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 import {
   generateGameBlueprint,
   type GameBrief,
@@ -156,24 +158,75 @@ const GameBuilder = ({ onBack }: GameBuilderProps) => {
   const [gameCode, setGameCode] = useState("");
   const [gamePreviewKey, setGamePreviewKey] = useState(0);
   const [currentBrief, setCurrentBrief] = useState<GameBrief | null>(null);
+  const [isGeneratingGame, setIsGeneratingGame] = useState(false);
+  const [isProcessingInstruction, setIsProcessingInstruction] = useState(false);
+  const [isRegenerating, setIsRegenerating] = useState(false);
 
   const selectedAssetDetails = useMemo(
     () => assets.filter((asset) => selectedAssets.has(asset.id)),
     [assets, selectedAssets]
   );
 
-  const applyBlueprint = (brief: GameBrief, options?: { userInstruction?: string }) => {
-    const blueprint = generateGameBlueprint(brief, options);
+  const applyBlueprint = (
+    brief: GameBrief,
+    options?: { userInstruction?: string; codeOverride?: string }
+  ) => {
+    const { userInstruction, codeOverride } = options ?? {};
+    const blueprint = generateGameBlueprint(brief, { userInstruction });
     const generatedAssets = enrichAssetsWithGradients(blueprint.assets);
 
     setSummary(blueprint.summary);
     setAssets(generatedAssets);
     setSelectedAssets(new Set(blueprint.selectedAssetIds));
-    setGameCode(blueprint.code);
+    setGameCode(codeOverride ?? blueprint.code);
     setGamePreviewKey((prev) => prev + 1);
     setCurrentBrief(brief);
 
     return blueprint;
+  };
+
+  const buildGamePrompt = (brief: GameBrief, extraInstruction?: string) => {
+    const sections: string[] = [];
+
+    if (brief.title) sections.push(`Titre du jeu : ${brief.title}`);
+    if (brief.theme) sections.push(`Thématique : ${brief.theme}`);
+    if (brief.description) sections.push(`Description détaillée : ${brief.description}`);
+    if (brief.references.length > 0) {
+      sections.push(`Références visuelles : ${brief.references.join(", ")}`);
+    }
+    if (extraInstruction) {
+      sections.push(`Instruction supplémentaire : ${extraInstruction}`);
+    }
+
+    sections.push(
+      "Livrable attendu : Fournis un fichier HTML complet contenant tout le CSS et JavaScript nécessaire pour un jeu jouable directement dans un navigateur." +
+        " Tu peux inclure des bibliothèques externes via des CDN publics si nécessaire, mais intègre toute la logique dans ce fichier afin qu'il soit exécutable tel quel."
+    );
+
+    return sections.join("\n\n");
+  };
+
+  const requestAIGameCode = async (brief: GameBrief, extraInstruction?: string) => {
+    const prompt = buildGamePrompt(brief, extraInstruction);
+
+    const { data, error } = await supabase.functions.invoke("generate-content", {
+      body: {
+        prompt,
+        category: "game",
+      },
+    });
+
+    if (error) {
+      throw error;
+    }
+
+    const aiCode = typeof data?.code === "string" ? data.code : data?.content;
+
+    if (!aiCode || typeof aiCode !== "string") {
+      throw new Error("Aucun code généré par le modèle IA");
+    }
+
+    return aiCode;
   };
 
   const handleToggleAsset = (assetId: string) => {
@@ -214,8 +267,10 @@ const GameBuilder = ({ onBack }: GameBuilderProps) => {
     setReferenceImages((prev) => prev.filter((_, idx) => idx !== index));
   };
 
-  const handlePromptGenerate = (event: FormEvent<HTMLFormElement>) => {
+  const handlePromptGenerate = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+
+    if (isGeneratingGame) return;
 
     const brief: GameBrief = {
       title: promptTitle.trim(),
@@ -224,28 +279,39 @@ const GameBuilder = ({ onBack }: GameBuilderProps) => {
       references: referenceImages,
     };
 
-    const blueprint = applyBlueprint(brief);
-    const timestamp = Date.now();
+    setIsGeneratingGame(true);
 
-    setMessages([
-      {
-        id: `assistant-${timestamp}`,
-        role: "assistant",
-        content: blueprint.assistantMessage,
-      },
-      {
-        id: `assistant-${timestamp + 1}`,
-        role: "assistant",
-        content: "N'hésite pas à me donner d'autres instructions, je regénérerai instantanément la scène jouable.",
-      },
-    ]);
-    setUpdates(blueprint.updates);
-    setHasGeneratedPrototype(true);
+    try {
+      const aiCode = await requestAIGameCode(brief);
+      const blueprint = applyBlueprint(brief, { codeOverride: aiCode });
+      const timestamp = Date.now();
+
+      setMessages([
+        {
+          id: `assistant-${timestamp}`,
+          role: "assistant",
+          content: blueprint.assistantMessage,
+        },
+        {
+          id: `assistant-${timestamp + 1}`,
+          role: "assistant",
+          content: "N'hésite pas à me donner d'autres instructions, je régénérerai instantanément la scène jouable.",
+        },
+      ]);
+      setUpdates(blueprint.updates);
+      setHasGeneratedPrototype(true);
+      toast.success("Prototype généré avec succès par l'IA ✨");
+    } catch (error) {
+      console.error("Erreur de génération de jeu", error);
+      toast.error("Impossible de générer le jeu pour le moment");
+    } finally {
+      setIsGeneratingGame(false);
+    }
   };
 
-  const handleSendMessage = (event: FormEvent<HTMLFormElement>) => {
+  const handleSendMessage = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!messageInput.trim()) return;
+    if (!messageInput.trim() || isProcessingInstruction) return;
 
     const trimmedMessage = messageInput.trim();
     const userMessage: ChatMessage = {
@@ -254,31 +320,58 @@ const GameBuilder = ({ onBack }: GameBuilderProps) => {
       content: trimmedMessage,
     };
 
-    let assistantContent = buildFallbackAssistantReply(trimmedMessage);
+    setMessages((prev) => [...prev, userMessage]);
+    setMessageInput("");
 
-    if (currentBrief) {
+    if (!currentBrief) {
+      const fallbackMessage: ChatMessage = {
+        id: `assistant-${Date.now()}`,
+        role: "assistant",
+        content: "Commence par générer un prototype en remplissant le brief principal.",
+      };
+      setMessages((prev) => [...prev, fallbackMessage]);
+      return;
+    }
+
+    setIsProcessingInstruction(true);
+
+    try {
       const updatedBrief: GameBrief = {
         ...currentBrief,
         title: summary.title,
         theme: summary.theme,
         description: `${currentBrief.description}\n${trimmedMessage}`.trim(),
+        references: currentBrief.references,
       };
 
-      const blueprint = applyBlueprint(updatedBrief, { userInstruction: trimmedMessage });
+      const aiCode = await requestAIGameCode(updatedBrief, trimmedMessage);
+      const blueprint = applyBlueprint(updatedBrief, {
+        userInstruction: trimmedMessage,
+        codeOverride: aiCode,
+      });
 
       setUpdates((prev) => mergeUpdates(trimmedMessage, blueprint.updates, prev));
 
-      assistantContent = blueprint.assistantMessage;
+      const assistantMessage: ChatMessage = {
+        id: `assistant-${Date.now()}`,
+        role: "assistant",
+        content: blueprint.assistantMessage,
+      };
+
+      setMessages((prev) => [...prev, assistantMessage]);
+      toast.success("Prototype mis à jour avec l'IA");
+    } catch (error) {
+      console.error("Erreur lors de la mise à jour du prototype", error);
+      const assistantMessage: ChatMessage = {
+        id: `assistant-${Date.now()}`,
+        role: "assistant",
+        content: buildFallbackAssistantReply(trimmedMessage),
+      };
+      setMessages((prev) => [...prev, assistantMessage]);
+      toast.error("Impossible d'appliquer cette instruction");
+    } finally {
+      setIsProcessingInstruction(false);
     }
-
-    const assistantMessage: ChatMessage = {
-      id: `assistant-${Date.now()}`,
-      role: "assistant",
-      content: assistantContent,
-    };
-
-    setMessages((prev) => [...prev, userMessage, assistantMessage]);
-    setMessageInput("");
   };
 
   const handleResetPrompt = () => {
@@ -300,18 +393,30 @@ const GameBuilder = ({ onBack }: GameBuilderProps) => {
     setCurrentBrief(null);
   };
 
-  const handleQuickRegenerate = () => {
-    if (!currentBrief) return;
-    const blueprint = applyBlueprint(currentBrief);
-    setUpdates((prev) => mergeUpdates(null, blueprint.updates, prev));
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: `assistant-${Date.now()}`,
-        role: "assistant",
-        content: "Prototype régénéré selon le brief actuel. Continue à m'indiquer les ajustements souhaités.",
-      },
-    ]);
+  const handleQuickRegenerate = async () => {
+    if (!currentBrief || isRegenerating) return;
+
+    setIsRegenerating(true);
+
+    try {
+      const aiCode = await requestAIGameCode(currentBrief);
+      const blueprint = applyBlueprint(currentBrief, { codeOverride: aiCode });
+      setUpdates((prev) => mergeUpdates(null, blueprint.updates, prev));
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `assistant-${Date.now()}`,
+          role: "assistant",
+          content: "Prototype régénéré selon le brief actuel. Continue à m'indiquer les ajustements souhaités.",
+        },
+      ]);
+      toast.success("Prototype régénéré avec le modèle IA");
+    } catch (error) {
+      console.error("Erreur lors de la régénération du prototype", error);
+      toast.error("Impossible de régénérer le prototype maintenant");
+    } finally {
+      setIsRegenerating(false);
+    }
   };
 
   return (
@@ -423,7 +528,7 @@ const GameBuilder = ({ onBack }: GameBuilderProps) => {
                 <div className="text-sm text-muted-foreground">
                   Conseil : détaille les boucles de gameplay principales, les ennemis, les alliés et les sensations recherchées pour un résultat précis.
                 </div>
-                <Button type="submit" className="gap-2">
+                <Button type="submit" className="gap-2" disabled={isGeneratingGame}>
                   <Sparkles className="h-4 w-4" />
                   Générer le prototype
                 </Button>
@@ -545,7 +650,11 @@ const GameBuilder = ({ onBack }: GameBuilderProps) => {
                   onChange={(event) => setMessageInput(event.target.value)}
                   placeholder="Décris une modification ou une nouvelle idée"
                 />
-                <Button type="submit" className="w-full gap-2">
+                <Button
+                  type="submit"
+                  className="w-full gap-2"
+                  disabled={isProcessingInstruction || !messageInput.trim()}
+                >
                   <Send className="h-4 w-4" />
                   Envoyer et mettre à jour
                 </Button>
@@ -580,7 +689,7 @@ const GameBuilder = ({ onBack }: GameBuilderProps) => {
                         srcDoc={gameCode}
                         className="h-[520px] w-full border-0"
                         title="Prototype jouable généré"
-                        sandbox="allow-scripts allow-pointer-lock allow-same-origin"
+                        sandbox="allow-scripts allow-pointer-lock"
                       />
                     ) : (
                       <div className="flex h-[520px] items-center justify-center text-sm text-muted-foreground">
@@ -645,7 +754,7 @@ const GameBuilder = ({ onBack }: GameBuilderProps) => {
                             variant="outline"
                             className="justify-start gap-2"
                             onClick={handleQuickRegenerate}
-                            disabled={!currentBrief}
+                            disabled={!currentBrief || isRegenerating}
                           >
                             <Sparkles className="h-4 w-4" />
                             Régénérer la scène

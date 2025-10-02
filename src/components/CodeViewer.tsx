@@ -136,7 +136,7 @@ const CodeViewer = ({ code, category }: CodeViewerProps) => {
             srcDoc={code}
             className="w-full h-[500px]"
             title="Preview"
-            sandbox="allow-scripts allow-same-origin"
+            sandbox="allow-scripts allow-pointer-lock"
           />
         </div>
       )}
