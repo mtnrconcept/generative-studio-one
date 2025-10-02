@@ -30,6 +30,11 @@ interface GenerationPlan {
 
 type GenerationMode = "content" | "plan";
 
+const PROMPT_PRIORITY_FR =
+  "Le prompt utilisateur est la référence absolue : suis-le strictement et adapte chaque ligne directrice à sa demande. N'ajoute aucune contrainte générale non demandée.";
+const PROMPT_PRIORITY_EN =
+  "The user's prompt is the primary source of truth: follow it strictly and adapt any guidelines to match the request. Do not introduce global constraints that were not requested.";
+
 const stripCodeFence = (text: string) => {
   const trimmed = text.trim();
   const match = trimmed.match(/^```[a-zA-Z0-9-]*\n([\s\S]*?)```$/);
@@ -208,20 +213,24 @@ const describeImageSettings = (
 };
 
 const buildPlanSystemPrompt = (category: string) => {
-  switch (mapCategory(category)) {
-    case "image":
-      return "Tu es directeur artistique senior. Tu construis un plan d'exécution ultra précis pour produire une image conforme au brief.";
-    case "music":
-      return "Tu es producteur musical expérimenté. Tu détailles un plan de composition étape par étape à partir du brief fourni.";
-    case "agent":
-      return "Tu es architecte logiciel spécialisé en IA autonome. Tu produis un plan d'implémentation structuré.";
-    case "website":
-      return "Tu es tech lead front-end. Tu proposes un plan d'implémentation pour un projet React/Vite moderne.";
-    case "app":
-      return "Tu es tech lead front-end. Tu prépares le plan d'implémentation d'une application React fonctionnelle.";
-    default:
-      return "Tu es un chef de projet senior. Tu génères un plan d'action détaillé et actionnable.";
-  }
+  const basePrompt = (() => {
+    switch (mapCategory(category)) {
+      case "image":
+        return "Tu es directeur artistique senior. Tu construis un plan d'exécution ultra précis pour produire une image conforme au brief.";
+      case "music":
+        return "Tu es producteur musical expérimenté. Tu détailles un plan de composition étape par étape à partir du brief fourni.";
+      case "agent":
+        return "Tu es architecte logiciel spécialisé en IA autonome. Tu produis un plan d'implémentation structuré.";
+      case "website":
+        return "Tu es tech lead front-end. Tu proposes un plan d'implémentation pour un projet React/Vite moderne.";
+      case "app":
+        return "Tu es tech lead front-end. Tu prépares le plan d'implémentation d'une application React fonctionnelle.";
+      default:
+        return "Tu es un chef de projet senior. Tu génères un plan d'action détaillé et actionnable.";
+    }
+  })();
+
+  return `${basePrompt} ${PROMPT_PRIORITY_FR}`;
 };
 
 const buildPlanInstruction = (
@@ -258,6 +267,10 @@ const buildPlanInstruction = (
 
   parts.push(
     "Respecte scrupuleusement le brief et veille à ce que chaque étape soit actionnable.",
+  );
+
+  parts.push(
+    "Le prompt est la source principale : adapte les lignes directrices à cette demande et n'applique aucune contrainte superflue.",
   );
 
   return parts.join("\n\n");
@@ -657,6 +670,10 @@ Inclue tous les fichiers nécessaires (package.json, tsconfig, vite.config.ts, i
       default:
         systemPrompt = "Vous êtes un assistant IA créatif et précis.";
     }
+
+    const promptPriority =
+      category === "image" ? PROMPT_PRIORITY_EN : PROMPT_PRIORITY_FR;
+    systemPrompt = `${systemPrompt.trim()}\n\n${promptPriority}`;
 
     const messages: Array<{ role: string; content: string }> = [
       { role: "system", content: systemPrompt },
