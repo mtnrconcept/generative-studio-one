@@ -3,7 +3,7 @@ import type { GenerationPlan, PlanSection } from "@/types/plan";
 import type { ImageAspectRatio, ImageGenerationSettings } from "@/types/image";
 import { supabase } from "@/integrations/supabase/client";
 
-export type CreativeTool = "image" | "music" | "agent" | "game";
+export type CreativeTool = "image" | "music" | "agent";
 
 interface GenerationOptions {
   prompt: string;
@@ -21,7 +21,6 @@ const TOOL_LABELS: Record<CreativeTool, string> = {
   image: "Générateur d'image",
   music: "Générateur de musique",
   agent: "Générateur d'agents",
-  game: "Générateur de jeux vidéo",
 };
 
 const simpleHash = (value: string) => {
@@ -289,30 +288,30 @@ const createImagePlan = (
       ],
     },
     {
-      title: "Orchestration Nano Banana",
+      title: "Orchestration Leonardo Phoenix",
       objective:
-        "Préparer les invites et passes de rendu pour le modèle Google Nano Banana et garantir un résultat photoréaliste.",
+        "Préparer les invites et paramètres pour Leonardo Phoenix et garantir un rendu contrôlé et cohérent.",
       steps: [
         {
           id: "prompting",
           title: "Rédiger l'invite maître",
           description:
-            "Structurer un prompt descriptif (sujet · ambiance · composition · détails) + prompt négatif précis.",
-          deliverable: "Prompt Nano Banana optimisé",
+            "Structurer un prompt hiérarchisé (sujet · ambiance · composition · détails) accompagné d'un prompt négatif robuste.",
+          deliverable: "Prompt Phoenix optimisé",
         },
         {
           id: "passes",
           title: "Configurer les passes",
           description:
-            "Planifier les passes base, détail et cohérence lumière (CFG, steps, seed partagé pour itérations).",
+            "Définir passes base, détail et cohérence lumière (CFG, steps, seed partagé) et prévoir une passe upscale.",
           deliverable: "Plan de passes calibré",
         },
         {
           id: "quality",
           title: "Sécuriser la qualité",
           description:
-            "Définir critères de rehausse : netteté, gestion du bruit, cohérence anatomique, rendu export 4K.",
-          deliverable: "Checklist qualité Nano Banana",
+            "Lister critères de rehausse : netteté, contrôle du bruit, cohérence anatomique, export HD/4K.",
+          deliverable: "Checklist qualité Leonardo",
         },
       ],
     },
@@ -364,13 +363,13 @@ const createImagePlan = (
 
   return {
     title: "Plan de génération d'image",
-    summary: `Créer une illustration ${style} centrée sur ${subject} dans ${mood} (${ratioDetails.label} ${ratioDetails.readable}, ${imageCount} variante(s), amélioration ${promptEnhance}) avec Google Nano Banana${summarySuffix}`,
+    summary: `Créer une illustration ${style} centrée sur ${subject} dans ${mood} (${ratioDetails.label} ${ratioDetails.readable}, ${imageCount} variante(s), amélioration ${promptEnhance}) avec Leonardo Phoenix${summarySuffix}`,
     sections,
     successCriteria: [
       "Sujet et ambiance fidèles au brief",
       "Composition lisible avec profondeur",
       "Palette harmonieuse et cohérente",
-      "Paramètres Nano Banana documentés pour reproductibilité",
+      "Paramètres Leonardo documentés pour reproductibilité",
       `Style ciblé : ${styleDescription}`,
     ],
     cautions: [
@@ -378,6 +377,548 @@ const createImagePlan = (
       "Adapter le niveau de détail selon le support d'utilisation",
       "Contrôler l'usage des assets tiers pour éviter les artefacts IA",
     ],
+  };
+};
+
+const generateImageResult = (options: GenerationOptions): GeneratedResult => {
+  const { prompt, version, modification, imageSettings } = options;
+  const effectiveSettings = imageSettings ?? DEFAULT_IMAGE_SETTINGS;
+  const ratioDetails = resolveAspectRatioDetails(effectiveSettings);
+  const styleDescriptor = describeStylePreset(effectiveSettings);
+  const providedSeed = effectiveSettings.advanced.seed.trim();
+  const hashInput = [
+    prompt,
+    modification ?? "",
+    ratioDetails.readable,
+    effectiveSettings.stylePreset ?? "libre",
+    effectiveSettings.promptEnhance ? "enhance" : "raw",
+    providedSeed,
+  ].join("|");
+  const hash = simpleHash(hashInput);
+
+  const palettes = [
+    "dégradé cobalt · indigo · lueur lavande",
+    "sable chaud · orange sanguine · violet électrique",
+    "menthe givrée · turquoise néon · argent chromé",
+    "graphite profond · cuivre fumé · bleu polaire",
+    "ivoire nacré · doré champagne · rose quartz",
+  ];
+  const renderStyles = [
+    "cinématique ultra-réaliste",
+    "peinture digitale texturée",
+    "illustration vectorielle premium",
+    "3D hybride photoréaliste",
+    "aquarelle pigmentée haut contraste",
+  ];
+  const cameraAngles = [
+    "optique 35mm à hauteur d'œil",
+    "optique tilt-shift panoramique",
+    "plongée architecturale dramatique",
+    "contre-plongée épique",
+    "plan large cinémascope",
+  ];
+  const lighting = [
+    "éclairage volumétrique à double rim light",
+    "setup studio trois points + rebond doré",
+    "lumière naturelle diffuse avec rayons godrays",
+    "ambiance nocturne néon et reflets humides",
+    "clair-obscur maîtrisé avec fill doux",
+  ];
+  const focus = [
+    "profondeur de champ f/1.8",
+    "focus stacking macro",
+    "mise au point douce sur le sujet principal",
+    "netteté uniforme f/8",
+    "bokeh cinétique",
+  ];
+
+  const finalSeed = providedSeed && providedSeed.length > 0
+    ? providedSeed
+    : (hash % 10_000_000).toString().padStart(7, "0");
+  const steps = effectiveSettings.advanced.stepCount ?? 40 + (hash % 10);
+  const cfgValue = effectiveSettings.advanced.guidanceScale ?? 11 + (hash % 4);
+  const sampler = pick(
+    ["LEO-FineDetail", "LEO-Contrast", "LEO-DreamWeaver"],
+    hash,
+    9,
+  );
+  const palette = pick(palettes, hash, 1);
+  const fallbackStyle = pick(renderStyles, hash, 3);
+  const angle = pick(cameraAngles, hash, 5);
+  const lights = pick(lighting, hash, 7);
+  const focusStyle = pick(focus, hash, 11);
+  const stylePrompt = effectiveSettings.stylePreset
+    ? STYLE_PRESET_PROMPTS[effectiveSettings.stylePreset] ?? styleDescriptor
+    : fallbackStyle;
+
+  const masterPrompt = [
+    effectiveSettings.promptEnhance
+      ? `highly descriptive prompt: ${prompt.trim()}`
+      : prompt.trim(),
+    stylePrompt,
+    angle,
+    lights,
+    focusStyle,
+    `palette ${palette}`,
+    effectiveSettings.advanced.highResolution ? "leonardo high fidelity rendering" : "",
+    effectiveSettings.advanced.upscale ? "detail-preserving upscaler" : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+  const negativePromptParts = [
+    "artefacts numériques",
+    "distorsion anatomique",
+    "texte",
+    "filigrane",
+    "sur-exposition",
+  ];
+  if (effectiveSettings.advanced.negativePrompt.trim()) {
+    negativePromptParts.push(effectiveSettings.advanced.negativePrompt.trim());
+  }
+  const negativePrompt = negativePromptParts.join(", ");
+
+  const preview = `https://picsum.photos/seed/leonardo-${encodeURIComponent(`${hash}-${version}`)}/${ratioDetails.width}/${ratioDetails.height}`;
+
+  const settingsSummary = [
+    `- Prompt enhance : ${effectiveSettings.promptEnhance ? "activé" : "désactivé"}`,
+    `- Format : ${ratioDetails.readable} (${ratioDetails.label})`,
+    `- Variations : ${effectiveSettings.imageCount}`,
+    `- Style : ${styleDescriptor}`,
+    `- Confidentialité : ${effectiveSettings.isPrivate ? "privée" : "publique"}`,
+    `- Upscale : ${effectiveSettings.advanced.upscale ? "oui" : "non"} · Haute résolution : ${effectiveSettings.advanced.highResolution ? "oui" : "non"}`,
+    `- Guidance : ${cfgValue} · Steps : ${steps}`,
+    `- Seed : ${finalSeed || "aléatoire"}`,
+  ];
+  if (effectiveSettings.advanced.negativePrompt.trim()) {
+    settingsSummary.push(`- Prompt négatif personnalisé : ${effectiveSettings.advanced.negativePrompt.trim()}`);
+  }
+
+  const content = [
+    "🧠 Analyse Phoenix",
+    `- Intention principale : ${prompt.trim() || "visuel conceptuel"}.`,
+    `- Variation demandée : ${modification ?? "première exploration"}.`,
+    `- Style retenu : ${stylePrompt} · ${palette}.`,
+    "",
+    "🎨 Prompt Leonardo Phoenix 1.1",
+    "```",
+    masterPrompt,
+    "```",
+    "",
+    "🚫 Prompt négatif",
+    "```",
+    negativePrompt,
+    "```",
+    "",
+    "🎛️ Paramétrage recommandé",
+    `- Modèle : Leonardo Phoenix 1.1 · Sampler : ${sampler}`,
+    `- Steps : ${steps} · Guidance : ${cfgValue}`,
+    `- Seed : ${finalSeed || "aléatoire"} · Ratio : ${ratioDetails.readable}`,
+    `- Upscale : ${effectiveSettings.advanced.upscale ? "activé" : "désactivé"} · Mode HD : ${effectiveSettings.advanced.highResolution ? "activé" : "désactivé"}`,
+    "",
+    "📋 Paramètres Leonardo",
+    ...settingsSummary,
+    "",
+    "📝 Checklist qualité",
+    "- Vérifier cohérence lumière / profondeur",
+    "- Inspecter détails critiques (mains, typographie, textures)",
+    "- Exporter une version HD + variante Web optimisée",
+  ].join("\n");
+
+  return {
+    type: "image",
+    category: TOOL_LABELS.image,
+    prompt,
+    version,
+    modification,
+    preview,
+    content,
+    imageSettings: effectiveSettings,
+  };
+};
+
+const generateMusicResult = (options: GenerationOptions): GeneratedResult => {
+  const { prompt, version, modification } = options;
+  const hash = simpleHash([prompt, modification ?? ""].join("|"));
+
+  const moods = [
+    "chillwave nocturne",
+    "cinématique héroïque",
+    "house organique",
+    "synthwave rétro",
+    "ambient méditatif",
+  ];
+  const structures = [
+    "intro aérienne → montée texturée → drop principal → pont respirant → final évolutif",
+    "prélude intimiste → premier thème → développement rythmique → climax orchestral → coda douce",
+    "hook immédiat → couplet percussif → refrain expansif → break minimal → reprise énergique",
+  ];
+  const instrumentStacks = [
+    "pads analogiques, basse ronde sidechainée, arpèges cristallins",
+    "section cordes hybride, cuivres cinématiques, impacts percussifs",
+    "guitare électrique delay, batterie acoustique traitée, textures granulaires",
+    "piano feutré, drones modulaires, percussions organiques",
+    "lead FM rétro, drums électroniques punchy, choeurs texturés",
+  ];
+  const rhythmIdeas = [
+    "groove breakbeat syncopé",
+    "pattern 4/4 club progressif",
+    "pulse trip-hop downtempo",
+    "balancement halftime futuriste",
+    "cadence pop uptempo",
+  ];
+  const mixingNotes = [
+    "Sculpte un espace stéréo large avec reverbs plates et delays ping-pong.",
+    "Automatise filtres passe-haut pour les transitions et sidechain subtil sur les pads.",
+    "Ajoute une saturation bande légère sur le bus master pour coller l'ensemble.",
+    "Prévois une automation de largeur stéréo crescendo vers le drop.",
+  ];
+
+  const bpm = [84, 96, 104, 118, 122][hash % 5];
+  const scale = ["La mineur", "Ré majeur", "Do# mineur", "Sol mineur", "Mi majeur"][hash % 5];
+
+  const content = [
+    `🎼 Concept : ${pick(moods, hash, 0)} · ${bpm} BPM · tonalité ${scale}.`,
+    `🎚️ Structure : ${pick(structures, hash, 3)}.`,
+    "",
+    "🧩 Arrangement conseillé",
+    `- Stack instrumental : ${pick(instrumentStacks, hash, 5)}.`,
+    `- Rythme principal : ${pick(rhythmIdeas, hash, 7)}.`,
+    "- Variations : couche un motif secondaire toutes les 16 mesures pour relancer l'énergie.",
+    "- Texture : captures de terrain et foley légers pour renforcer le storytelling.",
+    "",
+    "🎛️ Direction de production",
+    `- Sound design : crée 3 versions du lead pour ${modification ? "intégrer l'ajustement" : "proposer une palette"} contrastée (clean · saturée · granuleuse).`,
+    "- Harmonise les transitions avec risers inversés et impacts traités par convolution.",
+    `- ${pick(mixingNotes, hash, 11)}`,
+    "",
+    "📝 Livrables",
+    "- Stems séparés (drums / basse / harmo / FX / voix).",
+    "- Export master -14 LUFS, headroom 1 dB, format WAV 24 bits.",
+    "- Version courte 30 s pour social media.",
+  ].join("\n");
+
+  return {
+    type: "text",
+    category: TOOL_LABELS.music,
+    prompt,
+    version,
+    modification,
+    content,
+  };
+};
+
+const generateAgentResult = (options: GenerationOptions): GeneratedResult => {
+  const { prompt, version, modification } = options;
+  const hash = simpleHash([prompt, modification ?? ""].join("|"));
+
+  const nameBase = prompt
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 32)
+    .replace(/-+/g, "-");
+  const projectSlug = nameBase || `python-agent-${hash % 10_000}`;
+  const projectName = projectSlug
+    .split("-")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+
+  const objectives = [
+    "analyse stratégique hebdomadaire",
+    "synthèse automatisée des insights clients",
+    "génération d'idées de contenu ciblées",
+    "priorisation de backlog produit",
+    "veille concurrentielle structurée",
+  ];
+  const toolkit = [
+    "Notion API",
+    "Slack webhooks",
+    "Google Sheets",
+    "Linear API",
+    "HubSpot",
+  ];
+
+  const focusObjective = pick(objectives, hash, 1);
+  const integration = pick(toolkit, hash, 4);
+  const packageName = projectSlug.replace(/-/g, "_");
+
+  const instructions = [
+    "## Installation",
+    "```bash",
+    "python -m venv .venv",
+    "source .venv/bin/activate # ou .venv\\Scripts\\activate sous Windows",
+    "pip install -e .",
+    "cp .env.example .env",
+    "```",
+    "",
+    "## Configuration",
+    "1. Renseignez votre clé OpenAI et les identifiants API nécessaires dans `.env`.",
+    `2. Ajustez \`AGENT_OBJECTIVE\` et \`PRIMARY_INTEGRATION\` dans \`src/${packageName}/config.py\`.`,
+    "3. Lancez les tests rapides :",
+    "```bash",
+    "pytest",
+    "```",
+    "",
+    "## Exécution",
+    "```bash",
+    `python -m ${packageName}.cli task "Décrivez la prochaine action"`,
+    "```",
+    "",
+    "Le module FastAPI optionnel peut être lancé via :",
+    "```bash",
+    "uvicorn server.app:app --reload",
+    "```",
+  ].join("\n");
+
+  
+  const files: GeneratedResult["files"] = [
+    {
+      path: "pyproject.toml",
+      language: "toml",
+      content: [
+        '[build-system]',
+        'requires = ["setuptools>=65", "wheel"]',
+        'build-backend = "setuptools.build_meta"',
+        '',
+        '[project]',
+        `name = "${projectSlug}"`,
+        'version = "0.1.0"',
+        `description = "Agent Python pour ${focusObjective}"`,
+        'authors = [{ name = "Studio One" }]',
+        'requires-python = ">=3.10"',
+        'dependencies = [',
+        '  "openai>=1.13",',
+        '  "python-dotenv>=1.0",',
+        '  "typer>=0.9",',
+        '  "httpx>=0.26",',
+        '  "rich>=13.7",',
+        '  "fastapi>=0.110",',
+        '  "uvicorn[standard]>=0.27",',
+        '  "pydantic>=2.6",',
+        ']',
+        '',
+        '[project.scripts]',
+        `${projectSlug} = "${packageName}.cli:app"`,
+      ].join("\n"),
+    },
+    {
+      path: "README.md",
+      language: "markdown",
+      content: [
+        `# ${projectName}`,
+        "",
+        `Agent autonome focalisé sur ${focusObjective}. Il orchestre des appels OpenAI et ${integration} à partir d'un pipeline orchestré par Typer + FastAPI.`,
+        "",
+        "## Flux de travail",
+        `1. Collecte les inputs utilisateur et contexte depuis ${integration}.`,
+        "2. Raisonne avec une boucle planifier → exécuter → réviser via l'API OpenAI.",
+        "3. Produit un rapport structuré et déclenche, si nécessaire, un message sortant.",
+        "",
+        "## Démarrage rapide",
+        "",
+        instructions,
+      ].join("\n"),
+    },
+    {
+      path: ".env.example",
+      content: [
+        "OPENAI_API_KEY=sk-...",
+        "PRIMARY_INTEGRATION_TOKEN=replace-me",
+        "LOG_LEVEL=INFO",
+      ].join("\n"),
+    },
+    {
+      path: `src/${packageName}/__init__.py`,
+      language: "python",
+      content: [
+        '"""Metadata for package."""',
+        '__all__ = ["run_agent"]',
+      ].join("\n"),
+    },
+    {
+      path: `src/${packageName}/config.py`,
+      language: "python",
+      content: [
+        'from pydantic import BaseSettings, Field',
+        '',
+        '',
+        'class Settings(BaseSettings):',
+        '    """Application configuration loaded from environment."""',
+        '',
+        '    openai_api_key: str = Field(alias="OPENAI_API_KEY")',
+        '    primary_integration_token: str = Field(alias="PRIMARY_INTEGRATION_TOKEN")',
+        '    log_level: str = Field(default="INFO")',
+        `    agent_objective: str = Field(default="${focusObjective}")`,
+        `    primary_integration: str = Field(default="${integration}")`,
+        '',
+        '    model_config = {"env_file": ".env", "extra": "ignore"}',
+        '',
+        '',
+        'settings = Settings()',
+      ].join("\n"),
+    },
+    {
+      path: `src/${packageName}/agent.py`,
+      language: "python",
+      content: [
+        '"""Core reasoning loop for the autonomous agent."""',
+        'from __future__ import annotations',
+        '',
+        'from typing import List',
+        '',
+        'import httpx',
+        'from openai import OpenAI',
+        'from rich.console import Console',
+        '',
+        'from .config import settings',
+        'from .integrations import IntegrationClient',
+        '',
+        'console = Console()',
+        'client = OpenAI(api_key=settings.openai_api_key)',
+        '',
+        `SYSTEM_PROMPT = f"Vous êtes un agent spécialisé dans ${focusObjective}."`,
+        '',
+        '',
+        'def plan_tasks(goal: str) -> List[str]:',
+        '    response = client.responses.create(',
+        '        model="gpt-4.1-mini",',
+        '        input=[',
+        '            {"role": "system", "content": SYSTEM_PROMPT},',
+        '            {"role": "user", "content": f"Planifie 3 étapes pour : {goal}"},',
+        '        ],',
+        '    )',
+        '    steps = response.output_text.split("\n")',
+        '    return [step.strip("- •") for step in steps if step.strip()]',
+        '',
+        '',
+        'def run_agent(goal: str) -> str:',
+        '    console.rule("Démarrage de l\'agent")',
+        '    steps = plan_tasks(goal)',
+        '    integration = IntegrationClient(settings)',
+        '',
+        '    results: List[str] = []',
+        '    for index, step in enumerate(steps, start=1):',
+        '        console.print(f"[bold cyan]Étape {index}[/]: {step}")',
+        '        context = integration.fetch_context(step)',
+        '        response = client.responses.create(',
+        '            model="gpt-4.1-mini",',
+        '            input=[',
+        '                {"role": "system", "content": SYSTEM_PROMPT},',
+        '                {"role": "user", "content": f"Objectif: {goal}\\nÉtape: {step}\\nContexte: {context}"},',
+        '            ],',
+        '        )',
+        '        summary = response.output_text.strip()',
+        '        integration.push_update(step, summary)',
+        '        results.append(f"Étape {index}: {summary}")',
+        '',
+        '    console.rule("Synthèse")',
+        '    return "\n".join(results)',
+      ].join("\n"),
+    },
+    {
+      path: `src/${packageName}/integrations.py`,
+      language: "python",
+      content: [
+        `"""Integration shim for ${integration}."""`,
+        'from __future__ import annotations',
+        '',
+        'from .config import Settings',
+        '',
+        '',
+        'class IntegrationClient:',
+        '    """Very small abstraction over external integrations."""',
+        '',
+        '    def __init__(self, settings: Settings) -> None:',
+        '        self._settings = settings',
+        '',
+        '    def fetch_context(self, query: str) -> str:',
+        '        """Retrieve context related to the current task."""',
+        `        return f"Contexte simulé pour '{query}' via {self._settings.primary_integration}."`,
+        '',
+        '    def push_update(self, step: str, summary: str) -> None:',
+        '        """Send the agent decision to the integration."""',
+        '        _ = step, summary  # Ici on branchera l\'appel API réel.',
+      ].join("\n"),
+    },
+    {
+      path: `src/${packageName}/cli.py`,
+      language: "python",
+      content: [
+        '"""Command line interface to interact with the agent."""',
+        'from __future__ import annotations',
+        '',
+        'import typer',
+        '',
+        'from .agent import run_agent',
+        '',
+        'app = typer.Typer(help="Assistant intelligent orchestré par OpenAI")',
+        '',
+        '@app.command()',
+        'def task(description: str = typer.Argument(..., help="Objectif à analyser")) -> None:',
+        '    """Exécute le flux principal de l\'agent."""',
+        '    result = run_agent(description)',
+        '    typer.echo("\n" + result)',
+        '',
+        'if __name__ == "__main__":',
+        '    app()',
+      ].join("\n"),
+    },
+    {
+      path: "server/app.py",
+      language: "python",
+      content: [
+        '"""Minimal FastAPI wrapper exposing the agent."""',
+        'from __future__ import annotations',
+        '',
+        'from fastapi import FastAPI',
+        '',
+        `from ${packageName}.agent import run_agent`,
+        '',
+        `app = FastAPI(title="${projectName}")`,
+        '',
+        '@app.post("/run")',
+        'async def run(payload: dict[str, str]) -> dict[str, str]:',
+        '    goal = payload.get("goal", "Analyse générale")',
+        '    report = run_agent(goal)',
+        '    return {"goal": goal, "report": report}',
+      ].join("\n"),
+    },
+    {
+      path: "tests/test_agent.py",
+      language: "python",
+      content: [
+        '"""Smoke tests for agent entrypoints."""',
+        'from __future__ import annotations',
+        '',
+        `from ${packageName}.agent import plan_tasks`,
+        '',
+        '',
+        'def test_plan_tasks_generates_steps():',
+        '    steps = plan_tasks("Analyser un lancement produit")',
+        '    assert steps, "Planification vide"',
+      ].join("\n"),
+    },
+  ];
+
+  const content = [
+    `🧠 Objectif : ${focusObjective}.`,
+    `🔌 Intégration principale : ${integration}.`,
+    "⚙️ Stack : OpenAI Responses API · Typer CLI · FastAPI service · Pydantic Settings.",
+    `📁 Projet : ${projectName} (${projectSlug}).`,
+  ].join("\n");
+
+  return {
+    type: "code",
+    category: TOOL_LABELS.agent,
+    prompt,
+    version,
+    modification,
+    projectName,
+    projectType: "python-agent",
+    content,
+    instructions,
+    files,
   };
 };
 
@@ -669,584 +1210,6 @@ const createAgentPlan = (prompt: string, modification?: string): GenerationPlan 
   };
 };
 
-const createGamePlan = (prompt: string, modification?: string): GenerationPlan => {
-  const genre = detectKeyword(
-    prompt,
-    [
-      [/(rogue|survie|procédural)/, "rogue-lite stratégique"],
-      [/(puzzle|énigme|logic)/, "puzzle narratif"],
-      [/(gestion|city|tycoon)/, "jeu de gestion systémique"],
-      [/(action|combat|fps|tps)/, "action aventure immersive"],
-    ],
-    "jeu d'exploration narratif",
-  );
-  const camera = detectKeyword(
-    prompt,
-    [
-      [/(vue du dessus|top-down)/, "vue top-down"],
-      [/(isométrique)/, "caméra isométrique"],
-      [/(à la première personne|fps)/, "vue subjective"],
-      [/(troisième personne|tps)/, "caméra troisième personne"],
-    ],
-    "caméra dynamique",
-  );
-  const progression = detectKeyword(
-    prompt,
-    [
-      [/(campagne|histoire|narratif)/, "progression narrative chapitre par chapitre"],
-      [/(coop|multijoueur)/, "progression coopérative synchronisée"],
-      [/(compétitif|pvp)/, "progression compétitive basée sur le classement"],
-    ],
-    "progression par boucles de missions",
-  );
-
-  const sections: PlanSection[] = [
-    {
-      title: "Fondations du concept",
-      objective: "Définir l'expérience de jeu et la proposition de valeur.",
-      steps: [
-        {
-          id: "pitch",
-          title: "Synthétiser le pitch",
-          description: `Formuler ${genre} avec ${camera}.`,
-          deliverable: "Pitch en une phrase",
-        },
-        {
-          id: "audience",
-          title: "Identifier l'audience",
-          description: "Déterminer le joueur cible et ses motivations.",
-          deliverable: "Persona joueur",
-        },
-      ],
-    },
-    {
-      title: "Co-création Gemini 2.5",
-      objective: "Explorer variantes narratifs et mécaniques avec Gemini 2.5.",
-      steps: [
-        {
-          id: "scenarios",
-          title: "Scénarios IA",
-          description:
-            "Générer trois pitchs de campagnes dynamiques via Gemini 2.5 et retenir celui qui différencie le jeu.",
-          deliverable: "Arc narratif validé",
-        },
-        {
-          id: "systems",
-          title: "Systèmes augmentés",
-          description:
-            "Demander à Gemini 2.5 des variantes de boucles secondaires (craft, alliances, scoring).",
-          deliverable: "Boucles secondaires IA",
-        },
-        {
-          id: "dialogues",
-          title: "Voix des personnages",
-          description:
-            "Définir le ton des PNJ et générer un lexique signature pour l'univers avec Gemini 2.5.",
-          deliverable: "Guide de dialogues",
-        },
-      ],
-    },
-    {
-      title: "Boucle de gameplay",
-      objective: "Designer la boucle minute → session → métagame.",
-      steps: [
-        {
-          id: "minute",
-          title: "Boucle courte",
-          description: "Décrire les actions répétées (explorer, résoudre, combattre).",
-          deliverable: "Loop minute documentée",
-        },
-        {
-          id: "session",
-          title: "Boucle de session",
-          description: `Planifier la progression ${progression}.`,
-          deliverable: "Loop session",
-        },
-        {
-          id: "meta",
-          title: "Métagame",
-          description: "Imaginer les récompenses persistantes et améliorations.",
-          deliverable: "Système de progression",
-        },
-      ],
-    },
-    {
-      title: "Univers & production",
-      objective: "Décrire direction artistique et besoins techniques.",
-      steps: [
-        {
-          id: "worldbuilding",
-          title: "Esquisser l'univers",
-          description: "Définir ton, factions et arcs narratifs.",
-          deliverable: "Bible d'univers",
-        },
-        {
-          id: "tech",
-          title: "Lister les piliers techniques",
-          description: "Identifier moteurs, modules réseau et besoins IA.",
-          deliverable: "Backlog technique",
-        },
-        {
-          id: "roadmap",
-          title: "Étager la roadmap",
-          description: "Planifier préproduction, vertical slice, alpha et bêta.",
-          deliverable: "Roadmap haut niveau",
-        },
-      ],
-    },
-  ];
-
-  const summarySuffix = modification ? ` (évolution : ${modification})` : "";
-
-  return {
-    title: "Plan de concept jeu vidéo",
-    summary: `Imaginer ${genre} en ${camera} avec ${progression}, co-conçu avec Gemini 2.5${summarySuffix}`,
-    sections,
-    successCriteria: [
-      "Boucle de gameplay compréhensible",
-      "Progression et récompenses motivantes",
-      "Vision artistique cohérente",
-      "Propositions Gemini 2.5 consolidées",
-    ],
-    cautions: [
-      "Prioriser une vertical slice pour valider les sensations",
-      "Anticiper la charge de production selon la complexité technique",
-      "Filtrer les suggestions IA pour préserver la vision créative",
-    ],
-  };
-};
-
-
-const generateImageResult = (options: GenerationOptions): GeneratedResult => {
-  const { prompt, version, modification, imageSettings } = options;
-  const effectiveSettings = imageSettings ?? DEFAULT_IMAGE_SETTINGS;
-  const ratioDetails = resolveAspectRatioDetails(effectiveSettings);
-  const styleDescriptor = describeStylePreset(effectiveSettings);
-  const providedSeed = effectiveSettings.advanced.seed.trim();
-  const hashInput = [
-    prompt,
-    modification ?? "",
-    ratioDetails.readable,
-    effectiveSettings.stylePreset ?? "libre",
-    effectiveSettings.promptEnhance ? "enhance" : "raw",
-    providedSeed,
-  ].join("|");
-  const hash = simpleHash(hashInput);
-
-  const palettes = [
-    "dégradé cobalt · indigo · lueur lavande",
-    "sable chaud · orange sanguine · violet électrique",
-    "menthe givrée · turquoise néon · argent chromé",
-    "graphite profond · cuivre fumé · bleu polaire",
-    "ivoire nacré · doré champagne · rose quartz",
-  ];
-  const renderStyles = [
-    "cinématique ultra-réaliste",
-    "peinture digitale texturée",
-    "illustration vectorielle premium",
-    "3D hybride photoréaliste",
-    "aquarelle pigmentée haut contraste",
-  ];
-  const cameraAngles = [
-    "optique 35mm à hauteur d'œil",
-    "optique tilt-shift panoramique",
-    "plongée architecturale dramatique",
-    "contre-plongée épique",
-    "plan large cinémascope",
-  ];
-  const lighting = [
-    "éclairage volumétrique à double rim light",
-    "setup studio trois points + rebond doré",
-    "lumière naturelle diffuse avec rayons godrays",
-    "ambiance nocturne néon et reflets humides",
-    "clair-obscur maîtrisé avec fill doux",
-  ];
-  const focus = [
-    "profondeur de champ f/1.8",
-    "focus stacking macro",
-    "mise au point douce sur le sujet principal",
-    "netteté uniforme f/8",
-    "bokeh cinétique",
-  ];
-
-  const finalSeed = providedSeed && providedSeed.length > 0
-    ? providedSeed
-    : (hash % 10_000_000).toString().padStart(7, "0");
-  const steps = effectiveSettings.advanced.stepCount ?? 38 + (hash % 12);
-  const cfgValue = effectiveSettings.advanced.guidanceScale ?? 12 + (hash % 4);
-  const cfg = Number.isInteger(cfgValue) ? cfgValue.toFixed(0) : cfgValue.toFixed(1);
-  const sampler = pick(
-    ["Banana-Path v3", "Banana-Euler SDE", "Banana-Flow++"],
-    hash,
-    9,
-  );
-  const palette = pick(palettes, hash, 1);
-  const fallbackStyle = pick(renderStyles, hash, 3);
-  const angle = pick(cameraAngles, hash, 5);
-  const lights = pick(lighting, hash, 7);
-  const focusStyle = pick(focus, hash, 11);
-  const stylePrompt = effectiveSettings.stylePreset
-    ? STYLE_PRESET_PROMPTS[effectiveSettings.stylePreset] ?? styleDescriptor
-    : fallbackStyle;
-  const styleLabel = effectiveSettings.stylePreset ? styleDescriptor : stylePrompt;
-
-  const masterPrompt = [
-    effectiveSettings.promptEnhance
-      ? `highly detailed description: ${prompt.trim()}`
-      : prompt.trim(),
-    stylePrompt,
-    angle,
-    lights,
-    focusStyle,
-    `palette ${palette}`,
-    effectiveSettings.advanced.highResolution ? "leonardo diffusion high resolution" : "",
-    effectiveSettings.advanced.upscale ? "super resolution detail enhancement" : "",
-  ]
-    .filter(Boolean)
-    .join(" · ");
-
-  const negativePromptParts = [
-    "artefacts numériques",
-    "distorsion anatomique",
-    "texte",
-    "filigrane",
-    "sur-exposition",
-  ];
-  if (effectiveSettings.advanced.negativePrompt.trim()) {
-    negativePromptParts.push(effectiveSettings.advanced.negativePrompt.trim());
-  }
-  const negativePrompt = negativePromptParts.join(", ");
-
-  const preview = `https://picsum.photos/seed/nano-banana-${encodeURIComponent(`${hash}-${version}`)}/${ratioDetails.width}/${ratioDetails.height}`;
-
-  const settingsSummary = [
-    `- Prompt enhance : ${effectiveSettings.promptEnhance ? "activé" : "désactivé"}`,
-    `- Format : ${ratioDetails.readable} (${ratioDetails.label})`,
-    `- Variations : ${effectiveSettings.imageCount}`,
-    `- Style : ${styleDescriptor}`,
-    `- Confidentialité : ${effectiveSettings.isPrivate ? "privée" : "publique"}`,
-    `- Upscale : ${effectiveSettings.advanced.upscale ? "oui" : "non"} · Haute résolution : ${effectiveSettings.advanced.highResolution ? "oui" : "non"}`,
-    `- Guidance : ${cfgValue} · Steps : ${steps}`,
-    `- Seed : ${finalSeed || "aléatoire"}`,
-  ];
-  if (effectiveSettings.advanced.negativePrompt.trim()) {
-    settingsSummary.push(`- Prompt négatif personnalisé : ${effectiveSettings.advanced.negativePrompt.trim()}`);
-  }
-
-  const content = [
-    "🧠 Analyse Nano Banana",
-    `- Intention principale : ${prompt.trim() || "visuel conceptuel"}.`,
-    `- Variation demandée : ${modification ?? "première exploration"}.`,
-    `- Style retenu : ${styleLabel} (${palette}).`,
-    "",
-    "🎨 Prompt Google Nano Banana",
-    "```",
-    masterPrompt,
-    "```",
-    "",
-    "🚫 Prompt négatif",
-    "```",
-    negativePrompt,
-    "```",
-    "",
-    "⚙️ Paramètres de rendu recommandés",
-    `- Modèle : Google Nano Banana diffusion XL`,
-    `- Seed : ${finalSeed || "aléatoire"} · Steps : ${steps} · CFG : ${cfg}`,
-    `- Sampler : ${sampler} · Résolution : ${ratioDetails.readable}`,
-    `- Upscale : ${effectiveSettings.advanced.upscale ? "actif" : "désactivé"} · Mode HD : ${effectiveSettings.advanced.highResolution ? "actif" : "désactivé"}`,
-    "",
-    "📋 Paramètres Leonardo simulés",
-    ...settingsSummary,
-    "",
-    "📋 Checklist qualité",
-    "- Vérifier cohérence lumière/ombres",
-    "- Inspecter les détails critiques (mains, visages, typographie)",
-    "- Exporter en PNG 16 bits + version WebP optimisée",
-  ].join("\n");
-
-  return {
-    type: "image",
-    category: TOOL_LABELS.image,
-    prompt,
-    version,
-    modification,
-    preview,
-    content,
-    imageSettings:
-      imageSettings
-        ? imageSettings
-        : {
-            ...DEFAULT_IMAGE_SETTINGS,
-            customDimensions: DEFAULT_IMAGE_SETTINGS.customDimensions
-              ? { ...DEFAULT_IMAGE_SETTINGS.customDimensions }
-              : undefined,
-            advanced: { ...DEFAULT_IMAGE_SETTINGS.advanced },
-          },
-  };
-};
-
-const generateMusicResult = (options: GenerationOptions): GeneratedResult => {
-  const { prompt, version, modification } = options;
-  const hash = simpleHash(`${prompt}|${modification ?? ""}`);
-
-  const genres = ["Synthwave", "Lo-fi chill", "Ambient organique", "Electro-pop", "Cinematic"];
-  const moods = ["énergique", "reposante", "immersive", "nostalgique", "motivée"];
-  const tempos = ["82 BPM", "96 BPM", "108 BPM", "122 BPM", "132 BPM"];
-  const instruments = [
-    "Synthés analogiques, basse ronde, batterie électronique",
-    "Piano feutré, textures granuleuses, percussions douces",
-    "Cordes éthérées, nappes atmosphériques, sub bass",
-    "Guitares modulées, arps, beat hybride",
-    "Pads cinématiques, percussions organiques, chœurs traités",
-  ];
-  const structures = [
-    "Intro · Couplets évolutifs · Pont texturé · Finale expansif",
-    "Intro ambient · Groove principal · Breakdown · Reprise",
-    "Intro granulaire · Build progressif · Drop contrasté · Outro immersif",
-    "Ambient opening · Hook principal · Variation rythmique · Outro en fondu",
-    "Intro percussive · Section A/B · Climax harmonique · Outro suspendu",
-  ];
-  const mixTips = [
-    "Sidechain subtil 2dB sur la basse pour respirations du kick",
-    "Automations de filtre passe-haut sur transitions",
-    "Reverb shimmer parallèle sur le hook",
-    "Compression glue 2:1 sur le bus master",
-    "Saturation bande magnétique douce sur bus drums",
-  ];
-  const mastering = [
-    "Limiter Ozone à -14 LUFS, true peak -1 dB",
-    "EQ large +1dB à 12 kHz pour brillance",
-    "Stereo widener modéré (+15%) sur les pads",
-    "Exciter multibande léger sur médiums",
-    "Dynamic EQ pour contrôler 200 Hz",
-  ];
-  const deliverables = [
-    "Stems groupés (Drums / Bass / Harmonie / Lead / FX)",
-    "Version loopable 60s",
-    "Version instrumental",
-    "Preset synthé principal (.vitalpreset / .analoglab)",
-    "Fichier projet DAW (Ableton Live 11)",
-  ];
-
-  const genre = pick(genres, hash, 0);
-  const mood = pick(moods, hash, 2);
-  const tempo = pick(tempos, hash, 4);
-  const instrumentation = pick(instruments, hash, 6);
-  const structure = pick(structures, hash, 8);
-  const mix = pick(mixTips, hash, 10);
-  const master = pick(mastering, hash, 12);
-  const delivery = pick(deliverables, hash, 14);
-
-  const content = [
-    "🧠 Synthèse Gemini 2.5",
-    `- Analyse du brief : ${prompt.trim() || "composition atmosphérique"}.`,
-    `- Variation demandée : ${modification ?? "première version"}.`,
-    `- Direction : ${genre} ${mood} à ${tempo}.`,
-    "",
-    "🎼 Plan de composition",
-    `- Structure : ${structure}.`,
-    `- Instrumentation : ${instrumentation}.`,
-    "- Progression harmonique proposée : i – VI – III – VII (mode aeolien).",
-    "- Hook vocal/lead : motif pentatonique en doubles croches, delay ping-pong 3/16.",
-    "",
-    "🎚️ Production & mix",
-    `- Conseil mixage : ${mix}.`,
-    `- Traitement master : ${master}.`,
-    "- Export principal : 48 kHz · 24 bits WAV + version streaming -14 LUFS.",
-    "",
-    "📦 Livrables",
-    `- ${delivery}.`,
-    "- Fichier MIDI mélodie et progression d'accords.",
-    "- Rapport Gemini 2.5 : variantes harmonique et suggestions d'arrangement.",
-  ].join("\n");
-
-  return {
-    type: "description",
-    category: TOOL_LABELS.music,
-    prompt,
-    version,
-    modification,
-    content,
-  };
-};
-
-const generateAgentResult = (options: GenerationOptions): GeneratedResult => {
-  const { prompt, version, modification, previous } = options;
-  const hash = simpleHash(`${prompt}|${modification ?? ""}`);
-
-  const personas = [
-    "Analyste stratégique",
-    "Assistant produit",
-    "Coach de productivité",
-    "Planificateur marketing",
-    "Architecte d'expériences",
-  ];
-  const tools = [
-    "Notion",
-    "Slack",
-    "Figma",
-    "Airtable",
-    "Linear",
-  ];
-
-  const steps = [
-    "Analyse la demande et extrait les objectifs clés.",
-    "Génère un plan d'action structuré étape par étape.",
-    "Identifie les dépendances et ressources nécessaires.",
-    "Synthétise les livrables attendus et les jalons.",
-  ];
-  const cadences = [
-    "Stand-up quotidien 9h · revue hebdo OKR",
-    "Synthèse asynchrone lundi / jeudi",
-    "Rapport instantané post-tâche + revue mensuelle",
-    "Daily Slack + comité stratégique bi-hebdo",
-    "Check-in 48h + rapport de tendances hebdo",
-  ];
-  const guardrails = [
-    "Ne jamais valider un devis sans approbation humaine",
-    "Toujours citer ses sources dans les rapports",
-    "Limiter l'accès aux données sensibles (lecture seule)",
-    "Respecter RGPD et anonymiser les exports",
-    "Escalader toute décision financière > 2k€",
-  ];
-  const kpis = [
-    "Temps de réponse moyen < 5 min",
-    "Satisfaction post-interaction > 4.7/5",
-    "Tâches clôturées / semaine",
-    "Taux de conversion campagne",
-    "Nombre d'insights actionnables",
-  ];
-
-  const persona = pick(personas, hash, 1);
-  const stack = [pick(tools, hash, 2), pick(tools, hash, 4), pick(tools, hash, 6)]
-    .filter((value, index, array) => array.indexOf(value) === index)
-    .join(", ");
-  const cadence = pick(cadences, hash, 8);
-  const guardrail = pick(guardrails, hash, 10);
-  const kpi = pick(kpis, hash, 12);
-
-  const refinement = modification
-    ? `\n\nAdaptation demandée : ${modification}.`
-    : "";
-  const followUp = previous
-    ? "\n\nL'agent conserve la mémoire de la version précédente pour ajuster ses tâches."
-    : "";
-
-  const content = [
-    "🧠 Profil Gemini 2.5",
-    `- Persona : ${persona}.`,
-    `- Stack activée : ${stack}.`,
-    `- Cadence de synchronisation : ${cadence}.`,
-    `- KPI prioritaire : ${kpi}.`,
-    "",
-    "🔁 Workflow raisonné",
-    ...steps.map((step, index) => `${index + 1}. ${step}`),
-    "",
-    "🛡️ Garde-fous",
-    `- ${guardrail}.`,
-    "- Gemini 2.5 opère en mode « raisonnement vérifié » avec journal détaillé des décisions.",
-  ].join("\n");
-
-  return {
-    type: "description",
-    category: TOOL_LABELS.agent,
-    prompt,
-    version,
-    modification,
-    content: content + refinement + followUp,
-  };
-};
-
-const generateGameResult = (options: GenerationOptions): GeneratedResult => {
-  const { prompt, version, modification } = options;
-  const hash = simpleHash(`${prompt}|${modification ?? ""}`);
-
-  const genres = [
-    "Rogue-lite narratif",
-    "Puzzle aventure",
-    "Gestion stratégique",
-    "Exploration coopérative",
-    "Action tactique",
-  ];
-  const settings = [
-    "mégalopole néon",
-    "archipel suspendu",
-    "station orbitale",
-    "forêt numérique",
-    "cité souterraine",
-  ];
-  const mechanics = [
-    "boucle temporelle adaptative",
-    "craft collaboratif",
-    "systèmes procéduraux influencés par les choix",
-    "narration ramifiée",
-    "gestion d'équipes autonomes",
-  ];
-  const biomes = [
-    "biomes modulaires générés (quartiers néon, zones industrielles, sanctuaires)",
-    "îlots à verticalité variable reliés par rails lumineux",
-    "anneaux orbitaux multi-gravité",
-    "clairières holographiques évolutives",
-    "galeries souterraines luminescentes",
-  ];
-  const progressionBeats = [
-    "Objectifs de missions dynamiques + arcs personnels des compagnons",
-    "Cartes événementielles générées · réputation de faction",
-    "Arbre de compétences fractal + fabrication de modules uniques",
-    "Décisions morales impactant climat & économie",
-    "Cycle jour/nuit avec menace croissante",
-  ];
-  const techStacks = [
-    "Unreal Engine 5 + Verse scripting + Gemini 2.5 pour narration",
-    "Unity HDRP + ECS + Gemini 2.5 pour génération de quêtes",
-    "Godot 4 + GDExtension + Gemini 2.5 pour dialogues adaptatifs",
-    "Unreal + Lyra sample + Gemini 2.5 pour comportement IA",
-    "Unity URP + Netcode + Gemini 2.5 pour événements live",
-  ];
-
-  const genre = pick(genres, hash, 0);
-  const setting = pick(settings, hash, 3);
-  const mechanic = pick(mechanics, hash, 5);
-  const biome = pick(biomes, hash, 7);
-  const progressionBeat = pick(progressionBeats, hash, 9);
-  const techStack = pick(techStacks, hash, 11);
-
-  const content = [
-    "🧠 Vision Gemini 2.5",
-    `- Genre : ${genre}.`,
-    `- Cadre : ${setting} avec ${biome}.`,
-    `- Mécanique signature : ${mechanic}.`,
-    "",
-    "🎮 Boucle de jeu",
-    "1. Préparation : briefing dynamique, loadout généré par Gemini 2.5 selon mission.",
-    "2. Exploration : niveaux modulaires + événements systémiques IA.",
-    "3. Résolution : choix narratifs branchés, puzzles contextuels, combats tactiques.",
-    "4. Retombées : récompenses persistantes, relations PNJ, évolution du monde.",
-    "",
-    "📈 Progression",
-    `- ${progressionBeat}.`,
-    "- Table de loot adaptative IA + contrats hebdomadaires évolutifs.",
-    "",
-    "🎨 Direction artistique",
-    "- Palette : néons prismatiques + contrastes profonds.",
-    "- Effets : volumétrie particulaire, motion blur cinématique, UI diegétique.",
-    "",
-    "🛠️ Stack de production",
-    `- ${techStack}.`,
-    "- Pipeline audio : Wwise + Gemini 2.5 pour barks adaptatifs.",
-    "- LiveOps : génération d'événements limités via workflows Gemini.",
-  ].join("\n");
-
-  return {
-    type: "description",
-    category: TOOL_LABELS.game,
-    prompt,
-    version,
-    modification,
-    content,
-  };
-};
-
 export const requestCreativeResult = async (
   tool: CreativeTool,
   options: GenerationOptions,
@@ -1304,8 +1267,6 @@ export const generateCreativeResult = (
       return generateMusicResult(options);
     case "agent":
       return generateAgentResult(options);
-    case "game":
-      return generateGameResult(options);
     default:
       return generateImageResult(options);
   }
@@ -1326,8 +1287,6 @@ export const createCreativePlan = (
       return createMusicPlan(prompt, modification);
     case "agent":
       return createAgentPlan(prompt, modification);
-    case "game":
-      return createGamePlan(prompt, modification);
     default:
       return createImagePlan(prompt, modification);
   }
