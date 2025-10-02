@@ -11,6 +11,7 @@ interface GenerationOptions {
   modification?: string;
   previous?: GeneratedResult | null;
   imageSettings?: ImageGenerationSettings;
+  plan?: GenerationPlan | null;
 }
 
 interface PlanOptions {
@@ -32,10 +33,14 @@ const simpleHash = (value: string) => {
   return Math.abs(hash);
 };
 
-const pick = <T,>(items: T[], hash: number, offset: number) =>
+const pick = <T>(items: T[], hash: number, offset: number) =>
   items[(hash + offset) % items.length];
 
-const detectKeyword = (prompt: string, mapping: Array<[RegExp, string]>, fallback: string) => {
+const detectKeyword = (
+  prompt: string,
+  mapping: Array<[RegExp, string]>,
+  fallback: string,
+) => {
   const lowered = prompt.toLowerCase();
   for (const [regex, value] of mapping) {
     if (regex.test(lowered)) {
@@ -69,7 +74,10 @@ const extractColors = (prompt: string) => {
   return `palette ${detected[0]} et ${detected[1]}`;
 };
 
-const IMAGE_RATIO_CONFIG: Record<Exclude<ImageAspectRatio, "custom">, { width: number; height: number; label: string }> = {
+const IMAGE_RATIO_CONFIG: Record<
+  Exclude<ImageAspectRatio, "custom">,
+  { width: number; height: number; label: string }
+> = {
   "2:3": { width: 832, height: 1248, label: "portrait" },
   "1:1": { width: 1024, height: 1024, label: "carré" },
   "16:9": { width: 1280, height: 720, label: "paysage" },
@@ -145,7 +153,10 @@ const DEFAULT_IMAGE_SETTINGS: ImageGenerationSettings = {
 const resolveAspectRatioDetails = (settings?: ImageGenerationSettings) => {
   const ratio = settings?.aspectRatio ?? "3:2";
   if (ratio === "custom") {
-    const dimensions = settings?.customDimensions ?? { width: 1536, height: 1024 };
+    const dimensions = settings?.customDimensions ?? {
+      width: 1536,
+      height: 1024,
+    };
     return {
       ratio,
       label: "personnalisé",
@@ -185,17 +196,23 @@ const buildImageSettingsInstructions = (settings: ImageGenerationSettings) => {
   if (settings.promptEnhance) {
     instructions.push("Utilise un prompt descriptif riche et détaillé.");
   } else {
-    instructions.push("Interprète le prompt tel quel, sans extrapolation inutile.");
+    instructions.push(
+      "Interprète le prompt tel quel, sans extrapolation inutile.",
+    );
   }
 
   if (advanced.upscale) {
-    instructions.push("Prévoyez une passe d'upscale pour maximiser les détails.");
+    instructions.push(
+      "Prévoyez une passe d'upscale pour maximiser les détails.",
+    );
   }
   if (advanced.highResolution) {
     instructions.push("Optimise pour un rendu haute résolution.");
   }
 
-  instructions.push(`Paramètres souhaités : guidance ${advanced.guidanceScale} · steps ${advanced.stepCount}.`);
+  instructions.push(
+    `Paramètres souhaités : guidance ${advanced.guidanceScale} · steps ${advanced.stepCount}.`,
+  );
 
   if (advanced.seed.trim()) {
     instructions.push(`Conserve le seed ${advanced.seed.trim()} si possible.`);
@@ -265,7 +282,8 @@ const createImagePlan = (
   const sections: PlanSection[] = [
     {
       title: "Analyse du brief",
-      objective: "Clarifier sujet, ambiance et contraintes avant de produire l'image.",
+      objective:
+        "Clarifier sujet, ambiance et contraintes avant de produire l'image.",
       steps: [
         {
           id: "subject",
@@ -334,7 +352,8 @@ const createImagePlan = (
         {
           id: "details",
           title: "Ajouter les détails",
-          description: "Intégrer textures, accessoires et décor pour soutenir le récit visuel.",
+          description:
+            "Intégrer textures, accessoires et décor pour soutenir le récit visuel.",
           deliverable: "Détails finalisés",
         },
       ],
@@ -346,13 +365,15 @@ const createImagePlan = (
         {
           id: "grading",
           title: "Uniformiser les couleurs",
-          description: "Appliquer un color grading léger pour harmoniser l'image.",
+          description:
+            "Appliquer un color grading léger pour harmoniser l'image.",
           deliverable: "Palette harmonisée",
         },
         {
           id: "export",
           title: "Préparer le rendu",
-          description: "Exporter en haute définition, format adapté au support (PNG/WEBP).",
+          description:
+            "Exporter en haute définition, format adapté au support (PNG/WEBP).",
           deliverable: "Fichier final",
         },
       ],
@@ -432,9 +453,10 @@ const generateImageResult = (options: GenerationOptions): GeneratedResult => {
     "bokeh cinétique",
   ];
 
-  const finalSeed = providedSeed && providedSeed.length > 0
-    ? providedSeed
-    : (hash % 10_000_000).toString().padStart(7, "0");
+  const finalSeed =
+    providedSeed && providedSeed.length > 0
+      ? providedSeed
+      : (hash % 10_000_000).toString().padStart(7, "0");
   const steps = effectiveSettings.advanced.stepCount ?? 40 + (hash % 10);
   const cfgValue = effectiveSettings.advanced.guidanceScale ?? 11 + (hash % 4);
   const sampler = pick(
@@ -448,7 +470,7 @@ const generateImageResult = (options: GenerationOptions): GeneratedResult => {
   const lights = pick(lighting, hash, 7);
   const focusStyle = pick(focus, hash, 11);
   const stylePrompt = effectiveSettings.stylePreset
-    ? STYLE_PRESET_PROMPTS[effectiveSettings.stylePreset] ?? styleDescriptor
+    ? (STYLE_PRESET_PROMPTS[effectiveSettings.stylePreset] ?? styleDescriptor)
     : fallbackStyle;
 
   const masterPrompt = [
@@ -460,7 +482,9 @@ const generateImageResult = (options: GenerationOptions): GeneratedResult => {
     lights,
     focusStyle,
     `palette ${palette}`,
-    effectiveSettings.advanced.highResolution ? "leonardo high fidelity rendering" : "",
+    effectiveSettings.advanced.highResolution
+      ? "leonardo high fidelity rendering"
+      : "",
     effectiveSettings.advanced.upscale ? "detail-preserving upscaler" : "",
   ]
     .filter(Boolean)
@@ -491,7 +515,9 @@ const generateImageResult = (options: GenerationOptions): GeneratedResult => {
     `- Seed : ${finalSeed || "aléatoire"}`,
   ];
   if (effectiveSettings.advanced.negativePrompt.trim()) {
-    settingsSummary.push(`- Prompt négatif personnalisé : ${effectiveSettings.advanced.negativePrompt.trim()}`);
+    settingsSummary.push(
+      `- Prompt négatif personnalisé : ${effectiveSettings.advanced.negativePrompt.trim()}`,
+    );
   }
 
   const content = [
@@ -575,7 +601,13 @@ const generateMusicResult = (options: GenerationOptions): GeneratedResult => {
   ];
 
   const bpm = [84, 96, 104, 118, 122][hash % 5];
-  const scale = ["La mineur", "Ré majeur", "Do# mineur", "Sol mineur", "Mi majeur"][hash % 5];
+  const scale = [
+    "La mineur",
+    "Ré majeur",
+    "Do# mineur",
+    "Sol mineur",
+    "Mi majeur",
+  ][hash % 5];
 
   const content = [
     `🎼 Concept : ${pick(moods, hash, 0)} · ${bpm} BPM · tonalité ${scale}.`,
@@ -671,23 +703,22 @@ const generateAgentResult = (options: GenerationOptions): GeneratedResult => {
     "```",
   ].join("\n");
 
-  
   const files: GeneratedResult["files"] = [
     {
       path: "pyproject.toml",
       language: "toml",
       content: [
-        '[build-system]',
+        "[build-system]",
         'requires = ["setuptools>=65", "wheel"]',
         'build-backend = "setuptools.build_meta"',
-        '',
-        '[project]',
+        "",
+        "[project]",
         `name = "${projectSlug}"`,
         'version = "0.1.0"',
         `description = "Agent Python pour ${focusObjective}"`,
         'authors = [{ name = "Studio One" }]',
         'requires-python = ">=3.10"',
-        'dependencies = [',
+        "dependencies = [",
         '  "openai>=1.13",',
         '  "python-dotenv>=1.0",',
         '  "typer>=0.9",',
@@ -696,9 +727,9 @@ const generateAgentResult = (options: GenerationOptions): GeneratedResult => {
         '  "fastapi>=0.110",',
         '  "uvicorn[standard]>=0.27",',
         '  "pydantic>=2.6",',
-        ']',
-        '',
-        '[project.scripts]',
+        "]",
+        "",
+        "[project.scripts]",
         `${projectSlug} = "${packageName}.cli:app"`,
       ].join("\n"),
     },
@@ -731,31 +762,30 @@ const generateAgentResult = (options: GenerationOptions): GeneratedResult => {
     {
       path: `src/${packageName}/__init__.py`,
       language: "python",
-      content: [
-        '"""Metadata for package."""',
-        '__all__ = ["run_agent"]',
-      ].join("\n"),
+      content: ['"""Metadata for package."""', '__all__ = ["run_agent"]'].join(
+        "\n",
+      ),
     },
     {
       path: `src/${packageName}/config.py`,
       language: "python",
       content: [
-        'from pydantic import BaseSettings, Field',
-        '',
-        '',
-        'class Settings(BaseSettings):',
+        "from pydantic import BaseSettings, Field",
+        "",
+        "",
+        "class Settings(BaseSettings):",
         '    """Application configuration loaded from environment."""',
-        '',
+        "",
         '    openai_api_key: str = Field(alias="OPENAI_API_KEY")',
         '    primary_integration_token: str = Field(alias="PRIMARY_INTEGRATION_TOKEN")',
         '    log_level: str = Field(default="INFO")',
         `    agent_objective: str = Field(default="${focusObjective}")`,
         `    primary_integration: str = Field(default="${integration}")`,
-        '',
+        "",
         '    model_config = {"env_file": ".env", "extra": "ignore"}',
-        '',
-        '',
-        'settings = Settings()',
+        "",
+        "",
+        "settings = Settings()",
       ].join("\n"),
     },
     {
@@ -763,55 +793,55 @@ const generateAgentResult = (options: GenerationOptions): GeneratedResult => {
       language: "python",
       content: [
         '"""Core reasoning loop for the autonomous agent."""',
-        'from __future__ import annotations',
-        '',
-        'from typing import List',
-        '',
-        'import httpx',
-        'from openai import OpenAI',
-        'from rich.console import Console',
-        '',
-        'from .config import settings',
-        'from .integrations import IntegrationClient',
-        '',
-        'console = Console()',
-        'client = OpenAI(api_key=settings.openai_api_key)',
-        '',
+        "from __future__ import annotations",
+        "",
+        "from typing import List",
+        "",
+        "import httpx",
+        "from openai import OpenAI",
+        "from rich.console import Console",
+        "",
+        "from .config import settings",
+        "from .integrations import IntegrationClient",
+        "",
+        "console = Console()",
+        "client = OpenAI(api_key=settings.openai_api_key)",
+        "",
         `SYSTEM_PROMPT = f"Vous êtes un agent spécialisé dans ${focusObjective}."`,
-        '',
-        '',
-        'def plan_tasks(goal: str) -> List[str]:',
-        '    response = client.responses.create(',
+        "",
+        "",
+        "def plan_tasks(goal: str) -> List[str]:",
+        "    response = client.responses.create(",
         '        model="gpt-4.1-mini",',
-        '        input=[',
+        "        input=[",
         '            {"role": "system", "content": SYSTEM_PROMPT},',
         '            {"role": "user", "content": f"Planifie 3 étapes pour : {goal}"},',
-        '        ],',
-        '    )',
+        "        ],",
+        "    )",
         '    steps = response.output_text.split("\n")',
         '    return [step.strip("- •") for step in steps if step.strip()]',
-        '',
-        '',
-        'def run_agent(goal: str) -> str:',
+        "",
+        "",
+        "def run_agent(goal: str) -> str:",
         '    console.rule("Démarrage de l\'agent")',
-        '    steps = plan_tasks(goal)',
-        '    integration = IntegrationClient(settings)',
-        '',
-        '    results: List[str] = []',
-        '    for index, step in enumerate(steps, start=1):',
+        "    steps = plan_tasks(goal)",
+        "    integration = IntegrationClient(settings)",
+        "",
+        "    results: List[str] = []",
+        "    for index, step in enumerate(steps, start=1):",
         '        console.print(f"[bold cyan]Étape {index}[/]: {step}")',
-        '        context = integration.fetch_context(step)',
-        '        response = client.responses.create(',
+        "        context = integration.fetch_context(step)",
+        "        response = client.responses.create(",
         '            model="gpt-4.1-mini",',
-        '            input=[',
+        "            input=[",
         '                {"role": "system", "content": SYSTEM_PROMPT},',
         '                {"role": "user", "content": f"Objectif: {goal}\\nÉtape: {step}\\nContexte: {context}"},',
-        '            ],',
-        '        )',
-        '        summary = response.output_text.strip()',
-        '        integration.push_update(step, summary)',
+        "            ],",
+        "        )",
+        "        summary = response.output_text.strip()",
+        "        integration.push_update(step, summary)",
         '        results.append(f"Étape {index}: {summary}")',
-        '',
+        "",
         '    console.rule("Synthèse")',
         '    return "\n".join(results)',
       ].join("\n"),
@@ -821,24 +851,24 @@ const generateAgentResult = (options: GenerationOptions): GeneratedResult => {
       language: "python",
       content: [
         `"""Integration shim for ${integration}."""`,
-        'from __future__ import annotations',
-        '',
-        'from .config import Settings',
-        '',
-        '',
-        'class IntegrationClient:',
+        "from __future__ import annotations",
+        "",
+        "from .config import Settings",
+        "",
+        "",
+        "class IntegrationClient:",
         '    """Very small abstraction over external integrations."""',
-        '',
-        '    def __init__(self, settings: Settings) -> None:',
-        '        self._settings = settings',
-        '',
-        '    def fetch_context(self, query: str) -> str:',
+        "",
+        "    def __init__(self, settings: Settings) -> None:",
+        "        self._settings = settings",
+        "",
+        "    def fetch_context(self, query: str) -> str:",
         '        """Retrieve context related to the current task."""',
         `        return f"Contexte simulé pour '{query}' via {self._settings.primary_integration}."`,
-        '',
-        '    def push_update(self, step: str, summary: str) -> None:',
+        "",
+        "    def push_update(self, step: str, summary: str) -> None:",
         '        """Send the agent decision to the integration."""',
-        '        _ = step, summary  # Ici on branchera l\'appel API réel.',
+        "        _ = step, summary  # Ici on branchera l'appel API réel.",
       ].join("\n"),
     },
     {
@@ -846,22 +876,22 @@ const generateAgentResult = (options: GenerationOptions): GeneratedResult => {
       language: "python",
       content: [
         '"""Command line interface to interact with the agent."""',
-        'from __future__ import annotations',
-        '',
-        'import typer',
-        '',
-        'from .agent import run_agent',
-        '',
+        "from __future__ import annotations",
+        "",
+        "import typer",
+        "",
+        "from .agent import run_agent",
+        "",
         'app = typer.Typer(help="Assistant intelligent orchestré par OpenAI")',
-        '',
-        '@app.command()',
+        "",
+        "@app.command()",
         'def task(description: str = typer.Argument(..., help="Objectif à analyser")) -> None:',
         '    """Exécute le flux principal de l\'agent."""',
-        '    result = run_agent(description)',
+        "    result = run_agent(description)",
         '    typer.echo("\n" + result)',
-        '',
+        "",
         'if __name__ == "__main__":',
-        '    app()',
+        "    app()",
       ].join("\n"),
     },
     {
@@ -869,18 +899,18 @@ const generateAgentResult = (options: GenerationOptions): GeneratedResult => {
       language: "python",
       content: [
         '"""Minimal FastAPI wrapper exposing the agent."""',
-        'from __future__ import annotations',
-        '',
-        'from fastapi import FastAPI',
-        '',
+        "from __future__ import annotations",
+        "",
+        "from fastapi import FastAPI",
+        "",
         `from ${packageName}.agent import run_agent`,
-        '',
+        "",
         `app = FastAPI(title="${projectName}")`,
-        '',
+        "",
         '@app.post("/run")',
-        'async def run(payload: dict[str, str]) -> dict[str, str]:',
+        "async def run(payload: dict[str, str]) -> dict[str, str]:",
         '    goal = payload.get("goal", "Analyse générale")',
-        '    report = run_agent(goal)',
+        "    report = run_agent(goal)",
         '    return {"goal": goal, "report": report}',
       ].join("\n"),
     },
@@ -889,12 +919,12 @@ const generateAgentResult = (options: GenerationOptions): GeneratedResult => {
       language: "python",
       content: [
         '"""Smoke tests for agent entrypoints."""',
-        'from __future__ import annotations',
-        '',
+        "from __future__ import annotations",
+        "",
         `from ${packageName}.agent import plan_tasks`,
-        '',
-        '',
-        'def test_plan_tasks_generates_steps():',
+        "",
+        "",
+        "def test_plan_tasks_generates_steps():",
         '    steps = plan_tasks("Analyser un lancement produit")',
         '    assert steps, "Planification vide"',
       ].join("\n"),
@@ -922,7 +952,10 @@ const generateAgentResult = (options: GenerationOptions): GeneratedResult => {
   };
 };
 
-const createMusicPlan = (prompt: string, modification?: string): GenerationPlan => {
+const createMusicPlan = (
+  prompt: string,
+  modification?: string,
+): GenerationPlan => {
   const atmosphere = detectKeyword(
     prompt,
     [
@@ -945,7 +978,10 @@ const createMusicPlan = (prompt: string, modification?: string): GenerationPlan 
   const instrumentation = detectKeyword(
     prompt,
     [
-      [/(percussions|tribal|organic)/, "percussions organiques et textures granulaires"],
+      [
+        /(percussions|tribal|organic)/,
+        "percussions organiques et textures granulaires",
+      ],
       [/(synth|electro|analog)/, "synthés analogiques pulsés"],
       [/(acoustique|guitare|piano)/, "instrumentation acoustique intimiste"],
     ],
@@ -955,7 +991,8 @@ const createMusicPlan = (prompt: string, modification?: string): GenerationPlan 
   const sections: PlanSection[] = [
     {
       title: "Analyse musicale",
-      objective: "Comprendre l'univers sonore souhaité et cadrer les contraintes techniques.",
+      objective:
+        "Comprendre l'univers sonore souhaité et cadrer les contraintes techniques.",
       steps: [
         {
           id: "ambiance",
@@ -966,7 +1003,8 @@ const createMusicPlan = (prompt: string, modification?: string): GenerationPlan 
         {
           id: "structure",
           title: "Tracer la structure",
-          description: "Découper le morceau en intro, sections A/B, pont et outro.",
+          description:
+            "Découper le morceau en intro, sections A/B, pont et outro.",
           deliverable: "Plan de structure",
         },
       ],
@@ -1001,7 +1039,8 @@ const createMusicPlan = (prompt: string, modification?: string): GenerationPlan 
     },
     {
       title: "Composition",
-      objective: "Construire harmonie, motifs et transitions pour soutenir le récit musical.",
+      objective:
+        "Construire harmonie, motifs et transitions pour soutenir le récit musical.",
       steps: [
         {
           id: "harmonie",
@@ -1018,7 +1057,8 @@ const createMusicPlan = (prompt: string, modification?: string): GenerationPlan 
         {
           id: "transitions",
           title: "Préparer les transitions",
-          description: "Utiliser montées, impacts et textures pour relier les sections.",
+          description:
+            "Utiliser montées, impacts et textures pour relier les sections.",
           deliverable: "Automation des transitions",
         },
       ],
@@ -1030,19 +1070,22 @@ const createMusicPlan = (prompt: string, modification?: string): GenerationPlan 
         {
           id: "sound-design",
           title: "Sélectionner le sound design",
-          description: "Composer un rack d'instruments cohérent (pads, percussions, lead).",
+          description:
+            "Composer un rack d'instruments cohérent (pads, percussions, lead).",
           deliverable: "Palette sonore",
         },
         {
           id: "mix",
           title: "Mixer les stems",
-          description: "Équilibrer dynamiques, panoramiques et effets temporels.",
+          description:
+            "Équilibrer dynamiques, panoramiques et effets temporels.",
           deliverable: "Mix stéréo équilibré",
         },
         {
           id: "master",
           title: "Préparer le master",
-          description: "Appliquer compression glue, EQ douce et limiteur -14 LUFS.",
+          description:
+            "Appliquer compression glue, EQ douce et limiteur -14 LUFS.",
           deliverable: "Master prêt à diffuser",
         },
       ],
@@ -1069,7 +1112,10 @@ const createMusicPlan = (prompt: string, modification?: string): GenerationPlan 
   };
 };
 
-const createAgentPlan = (prompt: string, modification?: string): GenerationPlan => {
+const createAgentPlan = (
+  prompt: string,
+  modification?: string,
+): GenerationPlan => {
   const role = detectKeyword(
     prompt,
     [
@@ -1121,7 +1167,8 @@ const createAgentPlan = (prompt: string, modification?: string): GenerationPlan 
     },
     {
       title: "Intelligence Gemini 2.5",
-      objective: "Configurer une boucle de réflexion avancée propulsée par Gemini 2.5.",
+      objective:
+        "Configurer une boucle de réflexion avancée propulsée par Gemini 2.5.",
       steps: [
         {
           id: "reasoning",
@@ -1153,13 +1200,15 @@ const createAgentPlan = (prompt: string, modification?: string): GenerationPlan 
         {
           id: "inputs",
           title: "Cartographier les entrées",
-          description: "Lister les canaux d'information et signaux déclencheurs.",
+          description:
+            "Lister les canaux d'information et signaux déclencheurs.",
           deliverable: "Sources et signaux",
         },
         {
           id: "workflow",
           title: "Structurer le workflow",
-          description: "Détailler la séquence Observer → Analyser → Agir → Reporter.",
+          description:
+            "Détailler la séquence Observer → Analyser → Agir → Reporter.",
           deliverable: "Workflow détaillé",
         },
         {
@@ -1183,7 +1232,8 @@ const createAgentPlan = (prompt: string, modification?: string): GenerationPlan 
         {
           id: "handoff",
           title: "Planifier le handoff",
-          description: "Organiser la reprise humaine pour les demandes complexes.",
+          description:
+            "Organiser la reprise humaine pour les demandes complexes.",
           deliverable: "Process de reprise",
         },
       ],
@@ -1214,14 +1264,20 @@ export const requestCreativeResult = async (
   tool: CreativeTool,
   options: GenerationOptions,
 ): Promise<GeneratedResult> => {
-  if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY) {
+  if (
+    !import.meta.env.VITE_SUPABASE_URL ||
+    !import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
+  ) {
     throw new Error("Configuration Supabase manquante");
   }
 
-  const { prompt, version, modification, previous, imageSettings } = options;
+  const { prompt, version, modification, previous, imageSettings, plan } =
+    options;
   const shouldAppendImageSettings = tool === "image" && imageSettings;
   const enrichedPrompt = shouldAppendImageSettings
-    ? [prompt.trim(), buildImageSettingsInstructions(imageSettings!)].filter(Boolean).join("\n\n")
+    ? [prompt.trim(), buildImageSettingsInstructions(imageSettings!)]
+        .filter(Boolean)
+        .join("\n\n")
     : prompt;
 
   const { data, error } = await supabase.functions.invoke("generate-content", {
@@ -1230,6 +1286,9 @@ export const requestCreativeResult = async (
       category: tool,
       modification: modification?.trim() ? modification : undefined,
       existingContent: previous?.content?.trim() ? previous.content : undefined,
+      plan: plan ?? undefined,
+      mode: "content",
+      imageSettings: tool === "image" ? imageSettings : undefined,
     },
   });
 
@@ -1240,15 +1299,29 @@ export const requestCreativeResult = async (
   const payload = data as Partial<GeneratedResult>;
 
   return {
-    type: typeof payload?.type === "string" ? payload.type : tool === "image" ? "image" : "text",
+    type:
+      typeof payload?.type === "string"
+        ? payload.type
+        : tool === "image"
+          ? "image"
+          : "text",
     category: typeof payload?.category === "string" ? payload.category : tool,
     content: typeof payload?.content === "string" ? payload.content : undefined,
     preview: typeof payload?.preview === "string" ? payload.preview : undefined,
     code: typeof payload?.code === "string" ? payload.code : undefined,
     files: Array.isArray(payload?.files) ? payload.files : undefined,
-    instructions: typeof payload?.instructions === "string" ? payload.instructions : undefined,
-    projectName: typeof payload?.projectName === "string" ? payload.projectName : undefined,
-    projectType: typeof payload?.projectType === "string" ? payload.projectType : undefined,
+    instructions:
+      typeof payload?.instructions === "string"
+        ? payload.instructions
+        : undefined,
+    projectName:
+      typeof payload?.projectName === "string"
+        ? payload.projectName
+        : undefined,
+    projectType:
+      typeof payload?.projectType === "string"
+        ? payload.projectType
+        : undefined,
     prompt,
     version,
     modification,
@@ -1256,38 +1329,47 @@ export const requestCreativeResult = async (
   };
 };
 
-export const generateCreativeResult = (
-  tool: CreativeTool,
-  options: GenerationOptions,
-): GeneratedResult => {
-  switch (tool) {
-    case "image":
-      return generateImageResult(options);
-    case "music":
-      return generateMusicResult(options);
-    case "agent":
-      return generateAgentResult(options);
-    default:
-      return generateImageResult(options);
-  }
-};
-
 export const getCreativeToolLabel = (tool: CreativeTool) => TOOL_LABELS[tool];
 
-export const createCreativePlan = (
+export const requestCreativePlan = async (
   tool: CreativeTool,
   prompt: string,
   modification?: string,
-  options?: PlanOptions,
-): GenerationPlan => {
-  switch (tool) {
-    case "image":
-      return createImagePlan(prompt, modification, options?.image);
-    case "music":
-      return createMusicPlan(prompt, modification);
-    case "agent":
-      return createAgentPlan(prompt, modification);
-    default:
-      return createImagePlan(prompt, modification);
+  options?: PlanOptions & { existingPlan?: GenerationPlan | null },
+): Promise<GenerationPlan> => {
+  if (
+    !import.meta.env.VITE_SUPABASE_URL ||
+    !import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY
+  ) {
+    throw new Error("Configuration Supabase manquante");
   }
+
+  const { image } = options ?? {};
+
+  const { data, error } = await supabase.functions.invoke("generate-content", {
+    body: {
+      prompt,
+      category: tool,
+      modification: modification?.trim() ? modification : undefined,
+      mode: "plan",
+      existingPlan: options?.existingPlan ?? undefined,
+      imageSettings: tool === "image" ? image : undefined,
+    },
+  });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const payload = data as { plan?: GenerationPlan } | GenerationPlan | null;
+  const plan =
+    payload && "plan" in (payload as Record<string, unknown>)
+      ? (payload as { plan?: GenerationPlan }).plan
+      : (payload as GenerationPlan | null);
+
+  if (!plan) {
+    throw new Error("Plan introuvable dans la réponse");
+  }
+
+  return plan;
 };

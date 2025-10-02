@@ -10,11 +10,14 @@ import ImageGenerationSettings, {
 } from "@/components/ImageGenerationSettings";
 import { cn } from "@/lib/utils";
 import type { GeneratedResult } from "@/types/result";
-import type { GenerationPlan, PlanExecutionStep, PlanStepStatus } from "@/types/plan";
+import type {
+  GenerationPlan,
+  PlanExecutionStep,
+  PlanStepStatus,
+} from "@/types/plan";
 import {
-  createCreativePlan,
-  generateCreativeResult,
   getCreativeToolLabel,
+  requestCreativePlan,
   requestCreativeResult,
   type CreativeTool,
 } from "@/lib/content-generators";
@@ -71,9 +74,11 @@ const CreativeGenerator = ({ tool, description }: CreativeGeneratorProps) => {
   const [statusHistory, setStatusHistory] = useState<string[]>([]);
   const [statusMessage, setStatusMessage] = useState<string>("");
   const [pendingPrompt, setPendingPrompt] = useState<string>("");
-  const [pendingModification, setPendingModification] = useState<string | undefined>();
-  const [imageSettings, setImageSettings] = useState<ImageSettings>(
-    () => defaultImageGenerationSettings(),
+  const [pendingModification, setPendingModification] = useState<
+    string | undefined
+  >();
+  const [imageSettings, setImageSettings] = useState<ImageSettings>(() =>
+    defaultImageGenerationSettings(),
   );
   const timersRef = useRef<number[]>([]);
 
@@ -95,32 +100,45 @@ const CreativeGenerator = ({ tool, description }: CreativeGeneratorProps) => {
 
   const handlePlanRequest = useCallback(
     (basePrompt: string, modification?: string) => {
-      try {
-        setIsLoading(true);
-        resetProgress();
-        const generatedPlan = createCreativePlan(tool, basePrompt, modification, {
-          image: isImageTool ? imageSettings : undefined,
-        });
-        setPlan(generatedPlan);
-        setPhase("planning");
-        setStatusHistory(["Plan proposé à partir du brief"]);
-        setStatusMessage("Valide ou ajuste le plan avant la génération.");
-        toast.success("Plan d'action généré !");
-      } catch (error) {
-        console.error("Erreur lors de la génération du plan", error);
-        toast.error("Impossible de générer un plan pour cette demande.");
-        setPhase("idle");
-      } finally {
-        setIsLoading(false);
-      }
+      setIsLoading(true);
+      resetProgress();
+
+      const run = async () => {
+        try {
+          const generatedPlan = await requestCreativePlan(
+            tool,
+            basePrompt,
+            modification,
+            {
+              image: isImageTool ? imageSettings : undefined,
+              existingPlan: plan,
+            },
+          );
+          setPlan(generatedPlan);
+          setPhase("planning");
+          setStatusHistory(["Plan proposé à partir du brief"]);
+          setStatusMessage("Valide ou ajuste le plan avant la génération.");
+          toast.success("Plan d'action généré !");
+        } catch (error) {
+          console.error("Erreur lors de la génération du plan", error);
+          toast.error("Impossible de générer un plan pour cette demande.");
+          setPhase("idle");
+        } finally {
+          setIsLoading(false);
+        }
+      };
+
+      void run();
     },
-    [imageSettings, isImageTool, resetProgress, tool],
+    [imageSettings, isImageTool, plan, resetProgress, tool],
   );
 
   const handleSubmit = useCallback(
     (prompt: string) => {
       if (!prompt.trim()) {
-        toast.error("Décris ce que tu souhaites générer avant de lancer l'outil.");
+        toast.error(
+          "Décris ce que tu souhaites générer avant de lancer l'outil.",
+        );
         return;
       }
 
@@ -134,12 +152,16 @@ const CreativeGenerator = ({ tool, description }: CreativeGeneratorProps) => {
   const handleRefineSubmit = useCallback(
     (modification: string) => {
       if (!result) {
-        toast.error("Génère d'abord un contenu avant de demander une modification.");
+        toast.error(
+          "Génère d'abord un contenu avant de demander une modification.",
+        );
         return;
       }
 
       if (!modification.trim()) {
-        toast.error("Décris l'ajustement souhaité avant de lancer une révision.");
+        toast.error(
+          "Décris l'ajustement souhaité avant de lancer une révision.",
+        );
         return;
       }
 
@@ -166,7 +188,10 @@ const CreativeGenerator = ({ tool, description }: CreativeGeneratorProps) => {
 
     const steps = toExecutionSteps(plan);
     setExecutionSteps(steps);
-    setStatusHistory((previous) => [...previous, "Plan validé · génération en cours"]);
+    setStatusHistory((previous) => [
+      ...previous,
+      "Plan validé · génération en cours",
+    ]);
     setStatusMessage("Initialisation");
 
     clearTimers();
@@ -210,40 +235,41 @@ const CreativeGenerator = ({ tool, description }: CreativeGeneratorProps) => {
             let didFail = false;
 
             try {
-              const generated = isImageTool
-                ? await requestCreativeResult(tool, {
-                    prompt: basePrompt,
-                    version,
-                    modification,
-                    previous: result,
-                    imageSettings,
-                  })
-                : generateCreativeResult(tool, {
-                    prompt: basePrompt,
-                    version,
-                    modification,
-                    previous: result,
-                    imageSettings: isImageTool ? imageSettings : undefined,
-                  });
+              const generated = await requestCreativeResult(tool, {
+                prompt: basePrompt,
+                version,
+                modification,
+                previous: result,
+                imageSettings: isImageTool ? imageSettings : undefined,
+                plan,
+              });
 
               setHistory((previous) => [...previous, generated]);
               setResult(generated);
               setLastPrompt(basePrompt);
               setPhase("complete");
               setPlan(plan);
-              setStatusHistory((previous) => [...previous, "✨ Contenu final prêt"]);
+              setStatusHistory((previous) => [
+                ...previous,
+                "✨ Contenu final prêt",
+              ]);
               setStatusMessage("Génération terminée");
-              toast.success(modification ? "Révision générée !" : "Création générée !");
+              toast.success(
+                modification ? "Révision générée !" : "Création générée !",
+              );
             } catch (error) {
               console.error("Erreur lors de la génération", error);
               didFail = true;
               setPhase("planning");
-              setStatusHistory((previous) => [...previous, "❌ Échec de la génération"]);
+              setStatusHistory((previous) => [
+                ...previous,
+                "❌ Échec de la génération",
+              ]);
               setStatusMessage("Erreur lors de la génération");
               toast.error(
                 isImageTool
                   ? "Impossible de générer l'image. Vérifie ta configuration et réessaie."
-                  : "Impossible de générer le contenu. Réessaie."
+                  : "Impossible de générer le contenu. Réessaie.",
               );
             } finally {
               setIsLoading(false);
@@ -305,7 +331,9 @@ const CreativeGenerator = ({ tool, description }: CreativeGeneratorProps) => {
         />
       )}
 
-      {(phase === "generating" || executionSteps.length > 0 || statusHistory.length > 0) && (
+      {(phase === "generating" ||
+        executionSteps.length > 0 ||
+        statusHistory.length > 0) && (
         <GenerationProgress
           steps={executionSteps}
           statusMessage={statusMessage}
