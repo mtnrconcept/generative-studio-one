@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import CategoryCard from "@/components/CategoryCard";
 import PromptInput from "@/components/PromptInput";
 import ResultDisplay from "@/components/ResultDisplay";
+import ImageGenerator from "@/components/ImageGenerator";
 import heroBanner from "@/assets/hero-banner.jpg";
 import gameIcon from "@/assets/game-icon.png";
 import imageIcon from "@/assets/image-icon.png";
@@ -97,87 +98,105 @@ const Index = () => {
     }
   };
 
+  const isImageGenerator = selectedCategory === "image";
+  const selectedCategoryInfo = categories.find((c) => c.id === selectedCategory);
+
   return (
     <div className="min-h-screen bg-background">
-      {/* Hero Section */}
-      <section className="relative h-[60vh] flex items-center justify-center overflow-hidden">
-        <div 
-          className="absolute inset-0 bg-cover bg-center"
-          style={{ backgroundImage: `url(${heroBanner})` }}
+      {!isImageGenerator && (
+        <>
+          {/* Hero Section */}
+          <section className="relative h-[60vh] flex items-center justify-center overflow-hidden">
+            <div
+              className="absolute inset-0 bg-cover bg-center"
+              style={{ backgroundImage: `url(${heroBanner})` }}
+            />
+            <div className="absolute inset-0 bg-gradient-to-b from-background/80 via-background/50 to-background" />
+
+            <div className="relative z-10 text-center space-y-6 px-4">
+              <h1 className="text-5xl md:text-7xl font-bold bg-gradient-to-r from-primary via-secondary to-accent bg-clip-text text-transparent animate-fade-in">
+                Créez Sans Limites
+              </h1>
+              <p className="text-xl md:text-2xl text-muted-foreground max-w-2xl mx-auto">
+                Transformez vos idées en réalité avec l'IA
+              </p>
+            </div>
+          </section>
+
+          {/* Categories Section */}
+          {!selectedCategory && (
+            <section className="container mx-auto px-4 py-16">
+              <h2 className="text-3xl font-bold text-center mb-12">
+                Que souhaitez-vous créer ?
+              </h2>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
+                {categories.map((category) => (
+                  <CategoryCard
+                    key={category.id}
+                    title={category.title}
+                    description={category.description}
+                    icon={category.icon}
+                    onClick={() => handleCategorySelect(category.id)}
+                  />
+                ))}
+              </div>
+            </section>
+          )}
+        </>
+      )}
+
+      {isImageGenerator ? (
+        <ImageGenerator
+          onBack={() => {
+            setSelectedCategory("");
+            setResult(null);
+          }}
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-background/80 via-background/50 to-background" />
-        
-        <div className="relative z-10 text-center space-y-6 px-4">
-          <h1 className="text-5xl md:text-7xl font-bold bg-gradient-to-r from-primary via-secondary to-accent bg-clip-text text-transparent animate-fade-in">
-            Créez Sans Limites
-          </h1>
-          <p className="text-xl md:text-2xl text-muted-foreground max-w-2xl mx-auto">
-            Transformez vos idées en réalité avec l'IA
-          </p>
-        </div>
-      </section>
+      ) : (
+        <>
+          {/* Prompt Input Section */}
+          {selectedCategory && !result && (
+            <section className="container mx-auto px-4 py-16">
+              <div className="text-center mb-8">
+                <button
+                  onClick={() => setSelectedCategory("")}
+                  className="text-muted-foreground hover:text-foreground transition-colors mb-4"
+                >
+                  ← Retour aux catégories
+                </button>
+                <h2 className="text-3xl font-bold mb-2">
+                  Créer {selectedCategoryInfo?.title}
+                </h2>
+                <p className="text-muted-foreground">
+                  Décrivez votre vision, l'IA s'occupe du reste
+                </p>
+              </div>
 
-      {/* Categories Section */}
-      {!selectedCategory && (
-        <section className="container mx-auto px-4 py-16">
-          <h2 className="text-3xl font-bold text-center mb-12">
-            Que souhaitez-vous créer ?
-          </h2>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
-            {categories.map((category) => (
-              <CategoryCard
-                key={category.id}
-                title={category.title}
-                description={category.description}
-                icon={category.icon}
-                onClick={() => handleCategorySelect(category.id)}
+              <PromptInput
+                onSubmit={handlePromptSubmit}
+                isLoading={isLoading}
+                selectedCategory={selectedCategoryInfo?.title || ""}
               />
-            ))}
-          </div>
-        </section>
-      )}
+            </section>
+          )}
 
-      {/* Prompt Input Section */}
-      {selectedCategory && !result && (
-        <section className="container mx-auto px-4 py-16">
-          <div className="text-center mb-8">
-            <button
-              onClick={() => setSelectedCategory("")}
-              className="text-muted-foreground hover:text-foreground transition-colors mb-4"
-            >
-              ← Retour aux catégories
-            </button>
-            <h2 className="text-3xl font-bold mb-2">
-              Créer {categories.find(c => c.id === selectedCategory)?.title}
-            </h2>
-            <p className="text-muted-foreground">
-              Décrivez votre vision, l'IA s'occupe du reste
-            </p>
-          </div>
-          
-          <PromptInput
-            onSubmit={handlePromptSubmit}
-            isLoading={isLoading}
-            selectedCategory={categories.find(c => c.id === selectedCategory)?.title || ""}
-          />
-        </section>
-      )}
+          {/* Result Section */}
+          {result && (
+            <section className="container mx-auto px-4 py-16">
+              <div className="text-center mb-8">
+                <button
+                  onClick={() => setResult(null)}
+                  className="text-muted-foreground hover:text-foreground transition-colors mb-4"
+                >
+                  ← Nouvelle création
+                </button>
+              </div>
 
-      {/* Result Section */}
-      {result && (
-        <section className="container mx-auto px-4 py-16">
-          <div className="text-center mb-8">
-            <button
-              onClick={() => setResult(null)}
-              className="text-muted-foreground hover:text-foreground transition-colors mb-4"
-            >
-              ← Nouvelle création
-            </button>
-          </div>
-          
-          <ResultDisplay result={result} />
-        </section>
+              <ResultDisplay result={result} />
+            </section>
+          )}
+        </>
       )}
     </div>
   );
