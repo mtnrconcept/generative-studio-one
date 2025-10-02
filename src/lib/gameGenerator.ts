@@ -1,4 +1,5 @@
 import { nanoid } from "nanoid";
+import { getAssetSources, summarizeAssetBanks, type AssetSource } from "./assetBanks";
 
 export type GameBrief = {
   title: string;
@@ -20,6 +21,7 @@ export type GeneratedAsset = {
   name: string;
   category: string;
   description: string;
+  sources?: AssetSource[];
 };
 
 export type GameBlueprint = {
@@ -299,19 +301,35 @@ const buildAssets = (
   const assetSources = [
     ...objectives.map((objective) => ({
       label: objective.replace(/^[^:]+:\s*/, "").replace(/\.$/, "").trim(),
-      category: "Système",
+      category: "Objet interactif",
     })),
-    ...enemies.map((enemy) => ({ label: enemy, category: "Adversaire" })),
-    ...companions.map((companion) => ({ label: companion, category: "Allié" })),
-    ...keywords.map((keyword) => ({ label: toTitleCase(keyword), category: "Environnement" })),
+    ...enemies.map((enemy) => ({ label: enemy, category: "Personnage" })),
+    ...companions.map((companion) => ({ label: companion, category: "Personnage" })),
+    ...keywords.map((keyword) => ({ label: toTitleCase(keyword), category: "Décor" })),
   ];
 
-  return assetSources.slice(0, 8).map((source) => ({
-    id: nanoid(),
-    name: source.label,
-    category: source.category,
-    description: `Asset généré automatiquement pour représenter ${source.label.toLowerCase()}`,
-  }));
+  return assetSources.slice(0, 8).map((source) => {
+    const sources = getAssetSources(source.label, source.category, keywords);
+    const descriptionParts = [
+      `Asset généré automatiquement pour représenter ${source.label.toLowerCase()}`,
+    ];
+
+    if (sources.length > 0) {
+      descriptionParts.push(
+        `Suggestions de banques : ${sources
+          .map((assetSource) => `${assetSource.bankName} (${assetSource.license})`)
+          .join(" / ")}`
+      );
+    }
+
+    return {
+      id: nanoid(),
+      name: source.label,
+      category: source.category,
+      description: descriptionParts.join(". "),
+      sources,
+    };
+  });
 };
 
 const buildUpdates = (
@@ -320,7 +338,8 @@ const buildUpdates = (
   enemies: string[],
   companions: string[],
   objectives: string[],
-  palette: string[]
+  palette: string[],
+  assetBankHighlights: string[]
 ): string[] => {
   const updates = [
     `Ambiance : ${environment}`,
@@ -334,6 +353,11 @@ const buildUpdates = (
 
   if (companions.length > 0) {
     updates.splice(2, 0, `Alliés / Soutiens : ${companions.join(", ")}`);
+  }
+
+  if (assetBankHighlights.length > 0) {
+    const highlighted = assetBankHighlights.slice(0, 3).join(" • ");
+    updates.unshift(`Sources d'assets connectées : ${highlighted}`);
   }
 
   return updates;
@@ -766,8 +790,17 @@ export const generateGameBlueprint = (
   const collectibles = buildCollectibles(objectives, keywords.length > 0 ? keywords : ["artefacts", "fragments", "souvenirs"]);
 
   const assets = buildAssets(keywords, enemyLabels, companionLabels, objectives);
+  const assetBankHighlights = summarizeAssetBanks(assets);
   const selectedAssetIds = assets.slice(0, 3).map((asset) => asset.id);
-  const updates = buildUpdates(theme, environment, enemyLabels, companionLabels, objectives, palette);
+  const updates = buildUpdates(
+    theme,
+    environment,
+    enemyLabels,
+    companionLabels,
+    objectives,
+    palette,
+    assetBankHighlights
+  );
 
   const descriptionFallback = trimmedDescription ||
     "Prototype généré automatiquement à partir de votre brief pour démonstration immédiate.";
@@ -788,9 +821,17 @@ export const generateGameBlueprint = (
     ? `Instruction appliquée : ${options.userInstruction}`
     : "Prototype initial généré";
 
+  const assetSourceSummary = assetBankHighlights.slice(0, 2).join(" & ");
+
   const assistantMessage = `${directive}. ${title} vous plonge dans ${environment.toLowerCase()}. Objectifs clés : ${objectives
     .map((objective) => objective.replace(/^[^:]+:\s*/, ""))
-    .join(" / ")}. Palette utilisée : ${palette.join(" → ")}. Testez le gameplay interactif directement dans le previewer.`;
+    .join(" / ")}. Palette utilisée : ${palette.join(
+    " → "
+  )}. ${
+    assetSourceSummary
+      ? `Banques d'assets recommandées : ${assetSourceSummary}.`
+      : "Banques d'assets recommandées : Kenney Asset Packs & OpenGameArt."
+  } Testez le gameplay interactif directement dans le previewer.`;
 
   return {
     summary: {
