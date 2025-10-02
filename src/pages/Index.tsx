@@ -5,6 +5,7 @@ import PromptInput from "@/components/PromptInput";
 import ResultDisplay from "@/components/ResultDisplay";
 import ImageGenerator from "@/components/ImageGenerator";
 import GameBuilder from "@/components/GameBuilder";
+import WebsiteBuilderWorkspace, { ChatMessage } from "@/components/WebsiteBuilderWorkspace";
 import heroBanner from "@/assets/hero-banner.jpg";
 import gameIcon from "@/assets/game-icon.png";
 import imageIcon from "@/assets/image-icon.png";
@@ -63,36 +64,94 @@ const Index = () => {
     preview?: string;
     code?: string;
   } | null>(null);
+  const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
 
   const handleCategorySelect = (categoryId: string) => {
     setSelectedCategory(categoryId);
     setResult(null);
+    if (categoryId === "website") {
+      setChatHistory([
+        {
+          id: "welcome",
+          role: "assistant",
+          content:
+            "Bonjour ! Décrivez le site que vous souhaitez créer et je m'occupe du code.",
+        },
+      ]);
+    } else {
+      setChatHistory([]);
+    }
   };
 
   const handlePromptSubmit = async (prompt: string) => {
+    if (!selectedCategory) {
+      return;
+    }
+
+    const trimmedPrompt = prompt.trim();
+    if (!trimmedPrompt) {
+      return;
+    }
+
+    const userMessage: ChatMessage = {
+      id: `user-${Date.now()}`,
+      role: "user",
+      content: trimmedPrompt,
+      type: "prompt",
+    };
+
+    const currentCategory = selectedCategory;
+
+    if (currentCategory === "website") {
+      setChatHistory((previous) => [...previous, userMessage]);
+    }
     setIsLoading(true);
-    
+
     try {
       const { data, error } = await supabase.functions.invoke("generate-content", {
         body: {
-          prompt,
-          category: selectedCategory,
+          prompt: trimmedPrompt,
+          category: currentCategory,
         },
       });
 
       if (error) throw error;
 
       setResult({
-        type: data.type || selectedCategory,
-        category: data.category || selectedCategory,
+        type: data.type || currentCategory,
+        category: data.category || currentCategory,
         content: data.content,
         preview: data.preview,
         code: data.code,
       });
 
+      const assistantMessage: ChatMessage = {
+        id: `assistant-${Date.now()}`,
+        role: "assistant",
+        content:
+          currentCategory === "website"
+            ? "J'ai généré votre site ! Consultez la preview et l'arborescence des fichiers pour explorer le projet."
+            : data.content,
+        type: data.type,
+      };
+
+      if (currentCategory === "website") {
+        setChatHistory((previous) => [...previous, assistantMessage]);
+      }
       toast.success("Création réussie !");
     } catch (error) {
       console.error("Erreur:", error);
+      if (currentCategory === "website") {
+        setChatHistory((previous) => [
+          ...previous,
+          {
+            id: `assistant-error-${Date.now()}`,
+            role: "assistant",
+            content: "Une erreur est survenue lors de la génération. Réessayez dans un instant.",
+            type: "error",
+          },
+        ]);
+      }
       toast.error("Une erreur est survenue lors de la génération");
     } finally {
       setIsLoading(false);
@@ -101,6 +160,7 @@ const Index = () => {
 
   const isImageGenerator = selectedCategory === "image";
   const isGameBuilder = selectedCategory === "game";
+  const isWebsiteBuilder = selectedCategory === "website";
   const selectedCategoryInfo = categories.find((c) => c.id === selectedCategory);
 
   if (isGameBuilder) {
@@ -113,6 +173,22 @@ const Index = () => {
           }}
         />
       </div>
+    );
+  }
+
+  if (isWebsiteBuilder) {
+    return (
+      <WebsiteBuilderWorkspace
+        onBack={() => {
+          setSelectedCategory("");
+          setResult(null);
+          setChatHistory([]);
+        }}
+        onSubmit={handlePromptSubmit}
+        isLoading={isLoading}
+        result={result}
+        chatHistory={chatHistory}
+      />
     );
   }
 
