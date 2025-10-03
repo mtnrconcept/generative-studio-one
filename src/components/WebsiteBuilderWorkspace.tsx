@@ -7,9 +7,9 @@ import { cn } from "@/lib/utils";
 import { Loader2, Sparkles, FileCode2, FolderTree } from "lucide-react";
 import { transform } from "@babel/standalone";
 import {
-  ResizableHandle,
-  ResizablePanel,
-  ResizablePanelGroup,
+  Panel,
+  PanelGroup,
+  PanelResizeHandle,
 } from "react-resizable-panels";
 
 export interface ChatMessage {
@@ -689,8 +689,8 @@ const WebsiteBuilderWorkspace = ({
           </ScrollArea>
         </aside>
 
-        <ResizablePanelGroup direction="horizontal" className="flex flex-1 overflow-hidden">
-          <ResizablePanel defaultSize={60} minSize={40} className="flex flex-col">
+        <PanelGroup direction="horizontal" className="flex flex-1 overflow-hidden">
+          <Panel defaultSize={60} minSize={40} className="flex flex-col">
             <div className="flex flex-1 flex-col">
               <ScrollArea className="flex-1 px-6 py-6">
                 <div className="mx-auto flex w-full max-w-2xl flex-col gap-4">
@@ -709,11 +709,11 @@ const WebsiteBuilderWorkspace = ({
                 </div>
               </div>
             </div>
-          </ResizablePanel>
-          <ResizableHandle className="group hidden xl:flex w-4 cursor-col-resize items-center justify-center bg-transparent">
+          </Panel>
+          <PanelResizeHandle className="group hidden xl:flex w-4 cursor-col-resize items-center justify-center bg-transparent">
             <div className="h-12 w-[2px] rounded-full bg-border transition-colors duration-200 group-data-[resize-handle-active=true]:bg-primary" />
-          </ResizableHandle>
-          <ResizablePanel
+          </PanelResizeHandle>
+          <Panel
             defaultSize={40}
             minSize={25}
             className="hidden xl:flex flex-col border-l border-border/40 bg-muted/10"
@@ -769,8 +769,8 @@ const WebsiteBuilderWorkspace = ({
                 </div>
               </TabsContent>
             </Tabs>
-          </ResizablePanel>
-        </ResizablePanelGroup>
+          </Panel>
+        </PanelGroup>
       </div>
     </div>
   );
