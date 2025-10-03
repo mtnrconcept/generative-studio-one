@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,6 +26,9 @@ import {
   Sparkles,
   Wand2,
 } from "lucide-react";
+import ImageModeSelector from "./image-tools/ImageModeSelector";
+import { ImageModeId, ModeAnalysis, ModeState, UploadedImage } from "./image-tools/types";
+import { getModeDefinition, imageModes } from "./image-tools/modes";
 
 interface ImageGeneratorProps {
   onBack: () => void;
@@ -50,6 +53,10 @@ interface ImageGenerationSession {
   imageCount: number;
   createdAt: string;
   images: GeneratedImage[];
+  mode: ImageModeId;
+  modeLabel: string;
+  referenceCount: number;
+  analysisNote?: string;
 }
 
 const models = [
@@ -91,6 +98,16 @@ const imageCountOptions = [1, 2, 4];
 
 const createSessionId = () => `${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
 
+const createUploadId = () => `upload-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+
+const initialModeStates = imageModes.reduce(
+  (accumulator, mode) => {
+    accumulator[mode.id] = { sources: [], analysis: null } satisfies ModeState;
+    return accumulator;
+  },
+  {} as Record<ImageModeId, ModeState>,
+);
+
 const formatDate = (date: string) =>
   new Date(date).toLocaleString("fr-FR", {
     hour: "2-digit",
@@ -111,6 +128,203 @@ const ImageGenerator = ({ onBack }: ImageGeneratorProps) => {
   const [isLoading, setIsLoading] = useState(false);
   const [currentSession, setCurrentSession] = useState<ImageGenerationSession | null>(null);
   const [history, setHistory] = useState<ImageGenerationSession[]>([]);
+  const [selectedMode, setSelectedMode] = useState<ImageModeId>("image-to-image");
+  const [confirmedMode, setConfirmedMode] = useState<ImageModeId>("image-to-image");
+  const [modeStates, setModeStates] = useState<Record<ImageModeId, ModeState>>(() => ({ ...initialModeStates }));
+  const [processingModes, setProcessingModes] = useState<Partial<Record<ImageModeId, boolean>>>({});
+  const objectUrlsRef = useRef<Set<string>>(new Set());
+
+  useEffect(
+    () => () => {
+      objectUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
+      objectUrlsRef.current.clear();
+    },
+    [],
+  );
+
+  const convertFilesToUploads = async (files: FileList, limit: number): Promise<UploadedImage[]> => {
+    const filesArray = Array.from(files).slice(0, limit);
+
+    const uploads = await Promise.all(
+      filesArray.map(
+        (file) =>
+          new Promise<UploadedImage>((resolve, reject) => {
+            const reader = new FileReader();
+            const url = URL.createObjectURL(file);
+            objectUrlsRef.current.add(url);
+
+            reader.onload = () => {
+              resolve({
+                id: createUploadId(),
+                url,
+                name: file.name,
+                base64: typeof reader.result === "string" ? reader.result : undefined,
+              });
+            };
+
+            reader.onerror = () => {
+              URL.revokeObjectURL(url);
+              objectUrlsRef.current.delete(url);
+              reject(reader.error ?? new Error("Impossible de lire le fichier"));
+            };
+
+            reader.readAsDataURL(file);
+          }),
+      ),
+    );
+
+    return uploads;
+  };
+
+  const removeImageUrl = (url: string) => {
+    URL.revokeObjectURL(url);
+    objectUrlsRef.current.delete(url);
+  };
+
+  const simulateAnalysis = async (
+    modeId: ImageModeId,
+    image: UploadedImage,
+  ): Promise<ModeAnalysis | null> => {
+    const definition = getModeDefinition(modeId);
+    if (!definition?.analysisType) {
+      return null;
+    }
+
+    const { analysisType } = definition;
+
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        switch (analysisType) {
+          case "depth":
+            resolve({
+              type: "depth",
+              url: image.url,
+              note: "Carte de profondeur simulée (MiDaS)",
+            });
+            break;
+          case "edge":
+            resolve({
+              type: "edge",
+              url: image.url,
+              note: "Contours Canny simulés",
+            });
+            break;
+          case "pose":
+            resolve({
+              type: "pose",
+              url: image.url,
+              note: "Squelette OpenPose simulé",
+            });
+            break;
+          case "text":
+            resolve({
+              type: "text",
+              text: `Texte détecté : ${image.name.replace(/\.[^/.]+$/, "").slice(0, 80) || "Analyse OCR"}`,
+              note: "OCR simulé (Tesseract)",
+            });
+            break;
+          default:
+            resolve(null);
+        }
+      }, 600);
+    });
+  };
+
+  const handleModeUpload = async (modeId: ImageModeId, files: FileList | null) => {
+    if (!files || !files.length) {
+      return;
+    }
+
+    const definition = getModeDefinition(modeId);
+    const maxImages = definition?.maxImages ?? 1;
+
+    try {
+      if (definition?.analysisType) {
+        setProcessingModes((previous) => ({ ...previous, [modeId]: true }));
+      }
+
+      const uploads = await convertFilesToUploads(files, maxImages);
+
+      setModeStates((previous) => {
+        const current = previous[modeId] ?? { sources: [], analysis: null };
+        const allowMultiple = (definition?.maxImages ?? 1) > 1;
+        const combinedSources = allowMultiple ? [...current.sources, ...uploads] : uploads.slice(-1);
+        const limitedSources = allowMultiple ? combinedSources.slice(-maxImages) : combinedSources;
+        const removedSources = current.sources.filter((source) =>
+          limitedSources.every((candidate) => candidate.id !== source.id),
+        );
+        removedSources.forEach((source) => removeImageUrl(source.url));
+
+        return {
+          ...previous,
+          [modeId]: {
+            ...current,
+            sources: limitedSources,
+            analysis: definition?.analysisType ? null : current.analysis,
+          },
+        };
+      });
+
+      if (definition?.analysisType) {
+        const referenceImage = uploads[uploads.length - 1];
+        const analysis = referenceImage ? await simulateAnalysis(modeId, referenceImage) : null;
+        setModeStates((previous) => ({
+          ...previous,
+          [modeId]: {
+            ...previous[modeId],
+            analysis,
+          },
+        }));
+      }
+    } catch (error) {
+      console.error("Image upload error", error);
+      toast.error("Impossible de traiter l'image importée");
+    } finally {
+      if (definition?.analysisType) {
+        setProcessingModes((previous) => ({ ...previous, [modeId]: false }));
+      }
+    }
+  };
+
+  const handleRemoveModeImage = (modeId: ImageModeId, imageId: string) => {
+    setModeStates((previous) => {
+      const current = previous[modeId];
+      if (!current) {
+        return previous;
+      }
+
+      const target = current.sources.find((item) => item.id === imageId);
+      if (!target) {
+        return previous;
+      }
+
+      removeImageUrl(target.url);
+      const remaining = current.sources.filter((item) => item.id !== imageId);
+      const definition = getModeDefinition(modeId);
+
+      return {
+        ...previous,
+        [modeId]: {
+          ...current,
+          sources: remaining,
+          analysis: definition?.analysisType ? null : current.analysis,
+        },
+      };
+    });
+  };
+
+  const handleConfirmMode = () => {
+    const definition = getModeDefinition(selectedMode);
+    const state = modeStates[selectedMode];
+
+    if (!state?.sources.length) {
+      toast.error("Importez au moins une image pour activer ce module");
+      return;
+    }
+
+    setConfirmedMode(selectedMode);
+    toast.success(`${definition?.title ?? "Mode"} confirmé`);
+  };
 
   const selectedModel = useMemo(
     () => models.find((item) => item.value === model) ?? models[0],
@@ -122,6 +336,10 @@ const ImageGenerator = ({ onBack }: ImageGeneratorProps) => {
     [style],
   );
 
+  const activeMode = confirmedMode ?? selectedMode;
+  const activeModeDefinition = useMemo(() => getModeDefinition(activeMode), [activeMode]);
+  const activeModeState = modeStates[activeMode];
+
   const buildPrompt = () => {
     const basePrompt = prompt.trim();
 
@@ -131,6 +349,26 @@ const ImageGenerator = ({ onBack }: ImageGeneratorProps) => {
       `Ratio: ${aspectRatio}`,
       `Guidance créative: ${guidance}`,
     ];
+
+    if (activeModeDefinition) {
+      instructions.push(`Module d'image utilisé : ${activeModeDefinition.title}`);
+    }
+
+    if (activeModeState?.sources.length) {
+      instructions.push(
+        `Images de référence (${activeModeState.sources.length}) : ${activeModeState.sources
+          .map((image) => image.name)
+          .join(", ")}`,
+      );
+    }
+
+    if (activeModeState?.analysis) {
+      if (activeModeState.analysis.type === "text") {
+        instructions.push(`Texte interprété : ${activeModeState.analysis.text}`);
+      } else {
+        instructions.push(`Guidage ${activeModeState.analysis.note}`);
+      }
+    }
 
     if (promptMagic) {
       instructions.push(
@@ -165,6 +403,16 @@ const ImageGenerator = ({ onBack }: ImageGeneratorProps) => {
       return;
     }
 
+    if (!activeModeState?.sources.length) {
+      toast.error("Ajoutez une image de référence pour ce mode");
+      return;
+    }
+
+    if (processingModes[activeMode]) {
+      toast.error("Patientez pendant l'analyse de votre image");
+      return;
+    }
+
     setIsLoading(true);
 
     try {
@@ -177,6 +425,27 @@ const ImageGenerator = ({ onBack }: ImageGeneratorProps) => {
           body: {
             prompt: finalPrompt,
             category: "image",
+            mode: activeMode,
+            references: {
+              images: activeModeState.sources.map((image) => ({
+                id: image.id,
+                name: image.name,
+                data: image.base64,
+              })),
+              analysis:
+                activeModeState.analysis?.type === "text"
+                  ? {
+                      type: activeModeState.analysis.type,
+                      text: activeModeState.analysis.text,
+                      note: activeModeState.analysis.note,
+                    }
+                  : activeModeState.analysis
+                    ? {
+                        type: activeModeState.analysis.type,
+                        note: activeModeState.analysis.note,
+                      }
+                    : null,
+            },
           },
         });
 
@@ -211,6 +480,13 @@ const ImageGenerator = ({ onBack }: ImageGeneratorProps) => {
         imageCount,
         createdAt: new Date().toISOString(),
         images: generatedImages,
+        mode: activeMode,
+        modeLabel: activeModeDefinition?.title ?? activeMode,
+        referenceCount: activeModeState.sources.length,
+        analysisNote:
+          activeModeState.analysis?.type === "text"
+            ? activeModeState.analysis.text
+            : activeModeState.analysis?.note,
       };
 
       setCurrentSession(newSession);
@@ -226,6 +502,8 @@ const ImageGenerator = ({ onBack }: ImageGeneratorProps) => {
 
   const handleSelectSession = (session: ImageGenerationSession) => {
     setCurrentSession(session);
+    setSelectedMode(session.mode);
+    setConfirmedMode(session.mode);
   };
 
   return (
@@ -268,6 +546,21 @@ const ImageGenerator = ({ onBack }: ImageGeneratorProps) => {
             </div>
           </div>
         </div>
+
+        <Card className="border-border/60 bg-card/60 backdrop-blur">
+          <CardContent className="p-6">
+            <ImageModeSelector
+              selectedMode={selectedMode}
+              confirmedMode={confirmedMode}
+              onModeSelect={setSelectedMode}
+              onConfirm={handleConfirmMode}
+              onUpload={handleModeUpload}
+              onRemoveImage={handleRemoveModeImage}
+              states={modeStates}
+              processingModes={processingModes}
+            />
+          </CardContent>
+        </Card>
 
         <div className="grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)_320px]">
           <div className="space-y-6">
@@ -461,12 +754,21 @@ const ImageGenerator = ({ onBack }: ImageGeneratorProps) => {
                     </CardDescription>
                   </div>
                   {currentSession && (
-                    <div className="flex flex-wrap justify-end gap-2">
-                      <Badge variant="secondary" className="bg-primary/10 text-primary">
-                        {currentSession.modelLabel}
-                      </Badge>
-                      <Badge variant="outline">{currentSession.styleLabel}</Badge>
-                      <Badge variant="outline">Ratio {currentSession.aspectRatio}</Badge>
+                    <div className="flex flex-col items-end gap-2">
+                      <div className="flex flex-wrap justify-end gap-2">
+                        <Badge variant="secondary" className="bg-primary/10 text-primary">
+                          {currentSession.modelLabel}
+                        </Badge>
+                        <Badge variant="outline">{currentSession.styleLabel}</Badge>
+                        <Badge variant="outline">Ratio {currentSession.aspectRatio}</Badge>
+                        <Badge variant="outline">{currentSession.modeLabel}</Badge>
+                        <Badge variant="outline">{currentSession.referenceCount} réf.</Badge>
+                      </div>
+                      {currentSession.analysisNote && (
+                        <p className="text-xs text-muted-foreground/80 line-clamp-2 max-w-xs text-right">
+                          Guidage : {currentSession.analysisNote}
+                        </p>
+                      )}
                     </div>
                   )}
                 </div>
@@ -562,7 +864,16 @@ const ImageGenerator = ({ onBack }: ImageGeneratorProps) => {
                                 <span>{formatDate(session.createdAt)}</span>
                                 <span>•</span>
                                 <span>{session.modelLabel}</span>
+                                <span>•</span>
+                                <span>{session.modeLabel}</span>
+                                <span>•</span>
+                                <span>{session.referenceCount} réf.</span>
                               </div>
+                              {session.analysisNote && (
+                                <p className="text-xs text-muted-foreground/80 line-clamp-1">
+                                  {session.analysisNote}
+                                </p>
+                              )}
                             </div>
                           </div>
                         </button>
