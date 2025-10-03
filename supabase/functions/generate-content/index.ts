@@ -12,8 +12,11 @@ serve(async (req) => {
   }
 
   try {
-    const { prompt, category, kenneyPacks } = await req.json();
-    console.log(`Génération pour catégorie: ${category}, prompt: ${prompt}`);
+    const { prompt, category, kenneyPacks, mode, references } = await req.json();
+    const referenceCount = Array.isArray(references?.images) ? references.images.length : 0;
+    console.log(
+      `Génération pour catégorie: ${category}, mode: ${mode ?? 'default'}, références: ${referenceCount}, prompt: ${prompt}`,
+    );
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
@@ -220,20 +223,129 @@ Crée un script fonctionnel et bien structuré. Pas de texte en dehors du code e
         systemPrompt = "Vous êtes un assistant IA créatif et précis.";
     }
 
+    const model = useImageGeneration
+      ? "google/gemini-2.5-flash-image-preview"
+      : "google/gemini-2.5-flash";
+
+    const userContent = (() => {
+      if (!useImageGeneration) {
+        return prompt;
+      }
+
+      const images = Array.isArray(references?.images) ? references.images : [];
+
+      if (images.length === 0) {
+        return new Response(
+          JSON.stringify({ error: 'Une image de référence est requise pour la génération.' }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          },
+        );
+      }
+
+      const content: Array<
+        {
+          type: 'text';
+          text: string;
+        } | {
+          type: 'input_image';
+          image: { b64_json: string };
+          image_url?: { url: string };
+        }
+      > = [
+        { type: 'text', text: prompt },
+      ];
+
+      for (const image of images) {
+        if (!image?.data || typeof image.data !== 'string') {
+          console.warn('Image de référence sans données, ignorée');
+          continue;
+        }
+
+        const base64Data = image.data.includes(',') ? image.data.split(',').pop()?.trim() : image.data.trim();
+
+        if (!base64Data) {
+          console.warn('Impossible de lire les données base64 pour une image de référence');
+          continue;
+        }
+
+        const imageContent: {
+          type: 'input_image';
+          image: { b64_json: string };
+          image_url?: { url: string };
+        } = {
+          type: 'input_image',
+          image: { b64_json: base64Data },
+        };
+
+        if (image.data.startsWith('data:image')) {
+          imageContent.image_url = { url: image.data };
+        }
+
+        content.push(imageContent);
+      }
+
+      if (content.length === 1) {
+        return new Response(
+          JSON.stringify({ error: "Aucune donnée d'image de référence valide fournie." }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          },
+        );
+      }
+
+      if (references?.analysis) {
+        const analysis = references.analysis as
+          | { type: string; text?: string; note?: string }
+          | null
+          | undefined;
+
+        if (analysis) {
+          const analysisDetails = [analysis.note, analysis.text]
+            .filter((part) => typeof part === 'string' && part.trim().length > 0)
+            .join(' — ');
+
+          if (analysisDetails) {
+            content.push({
+              type: 'text',
+              text: `Analyse fournie (${analysis.type}): ${analysisDetails}`,
+            });
+          }
+        }
+      }
+
+      if (mode) {
+        content.push({ type: 'text', text: `Mode d'interprétation: ${mode}` });
+      }
+
+      return content;
+    })();
+
+    if (userContent instanceof Response) {
+      return userContent;
+    }
+
+    const payload: Record<string, unknown> = {
+      model,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userContent },
+      ],
+    };
+
+    if (useImageGeneration) {
+      payload.modalities = ['image', 'text'];
+    }
+
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        model: useImageGeneration ? "google/gemini-2.5-flash-image-preview" : "google/gemini-2.5-flash",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: prompt }
-        ],
-        modalities: useImageGeneration ? ["image", "text"] : undefined
-      }),
+      body: JSON.stringify(payload),
     });
 
     if (!response.ok) {
@@ -247,7 +359,31 @@ Crée un script fonctionnel et bien structuré. Pas de texte en dehors du code e
 
     let result;
     if (useImageGeneration) {
-      const imageUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+      let imageUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+      if (!imageUrl) {
+        const messageContent = data.choices?.[0]?.message?.content;
+        if (Array.isArray(messageContent)) {
+          for (const item of messageContent) {
+            if (item?.type === 'output_image') {
+              imageUrl = item?.image_url?.url;
+              if (!imageUrl) {
+                const base64 =
+                  item?.image_base64 || item?.b64_json || item?.image?.b64_json || item?.data;
+                if (typeof base64 === 'string' && base64.trim().length > 0) {
+                  imageUrl = `data:image/png;base64,${base64}`;
+                }
+              }
+            } else if (item?.type === 'image_url' && item?.image_url?.url) {
+              imageUrl = item.image_url.url;
+            }
+
+            if (imageUrl) {
+              break;
+            }
+          }
+        }
+      }
+
       if (!imageUrl) {
         throw new Error('Aucune image générée');
       }
