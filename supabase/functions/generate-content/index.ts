@@ -6,6 +6,25 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const IMAGE_MODE_INSTRUCTIONS: Record<string, string> = {
+  'image-to-image':
+    "Respecte la structure principale de l'image fournie et améliore-la en suivant fidèlement le nouveau brief.",
+  'style-reference':
+    'Transfère les couleurs, lumières et textures des images de style sur la scène décrite par le prompt.',
+  'content-reference':
+    "Garde la mise en page, la perspective et les objets clés de l'image d'origine tout en renouvelant le rendu.",
+  'character-reference':
+    'Préserve les traits du personnage de référence (visage, coiffure, vêtements) dans la nouvelle scène.',
+  'depth-to-image':
+    'Utilise la carte de profondeur pour conserver les volumes, perspectives et distances entre les plans.',
+  'edge-to-image':
+    "Suis les contours détectés pour respecter la structure de la scène avant d'ajouter le rendu final.",
+  'pose-to-image':
+    "Reproduis exactement la pose et l'orientation du corps détectées tout en adaptant le style demandé.",
+  'text-image-input':
+    'Intègre le texte reconnu comme élément visuel lisible et cohérent dans la composition finale.',
+};
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -318,6 +337,10 @@ Crée un script fonctionnel et bien structuré. Pas de texte en dehors du code e
 
       if (mode) {
         content.push({ type: 'text', text: `Mode d'interprétation: ${mode}` });
+        const guidance = IMAGE_MODE_INSTRUCTIONS[String(mode)];
+        if (guidance) {
+          content.push({ type: 'text', text: guidance });
+        }
       }
 
       return content;
