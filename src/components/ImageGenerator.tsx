@@ -18,11 +18,13 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils";
 import {
   Download,
   History,
   ImageIcon,
+  ChevronDown,
   Sparkles,
   Wand2,
 } from "lucide-react";
@@ -132,6 +134,7 @@ const ImageGenerator = ({ onBack }: ImageGeneratorProps) => {
   const [confirmedMode, setConfirmedMode] = useState<ImageModeId>("image-to-image");
   const [modeStates, setModeStates] = useState<Record<ImageModeId, ModeState>>(() => ({ ...initialModeStates }));
   const [processingModes, setProcessingModes] = useState<Partial<Record<ImageModeId, boolean>>>({});
+  const [isGuidanceOpen, setIsGuidanceOpen] = useState(false);
   const objectUrlsRef = useRef<Set<string>>(new Set());
 
   useEffect(
@@ -237,6 +240,8 @@ const ImageGenerator = ({ onBack }: ImageGeneratorProps) => {
 
     const definition = getModeDefinition(modeId);
     const maxImages = definition?.maxImages ?? 1;
+
+    setIsGuidanceOpen(true);
 
     try {
       if (definition?.analysisType) {
@@ -547,21 +552,6 @@ const ImageGenerator = ({ onBack }: ImageGeneratorProps) => {
           </div>
         </div>
 
-        <Card className="border-border/60 bg-card/60 backdrop-blur">
-          <CardContent className="p-6">
-            <ImageModeSelector
-              selectedMode={selectedMode}
-              confirmedMode={confirmedMode}
-              onModeSelect={setSelectedMode}
-              onConfirm={handleConfirmMode}
-              onUpload={handleModeUpload}
-              onRemoveImage={handleRemoveModeImage}
-              states={modeStates}
-              processingModes={processingModes}
-            />
-          </CardContent>
-        </Card>
-
         <div className="grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)_320px]">
           <div className="space-y-6">
             <Card className="border-border/60 bg-card/60 backdrop-blur">
@@ -741,6 +731,49 @@ const ImageGenerator = ({ onBack }: ImageGeneratorProps) => {
                     disabled={isLoading}
                   />
                 </div>
+
+                <Collapsible open={isGuidanceOpen} onOpenChange={setIsGuidanceOpen}>
+                  <div className="space-y-4 rounded-xl border border-border/70 bg-background/80 p-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="space-y-1">
+                        <p className="text-sm font-semibold text-foreground">Guidage par images</p>
+                        <p className="text-xs text-muted-foreground">
+                          Activez un module de référence pour influencer la prochaine génération.
+                        </p>
+                      </div>
+                      <CollapsibleTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          className="flex items-center gap-2 bg-primary/10 text-primary hover:bg-primary/15"
+                        >
+                          <ImageIcon className="h-4 w-4" />
+                          Image référence
+                          <ChevronDown
+                            className={cn(
+                              "h-4 w-4 transition-transform",
+                              isGuidanceOpen ? "rotate-180" : "rotate-0",
+                            )}
+                          />
+                        </Button>
+                      </CollapsibleTrigger>
+                    </div>
+                    <CollapsibleContent className="space-y-4 pt-2">
+                      <div className="rounded-xl border border-border/60 bg-card/60 p-6 backdrop-blur">
+                        <ImageModeSelector
+                          selectedMode={selectedMode}
+                          confirmedMode={confirmedMode}
+                          onModeSelect={setSelectedMode}
+                          onConfirm={handleConfirmMode}
+                          onUpload={handleModeUpload}
+                          onRemoveImage={handleRemoveModeImage}
+                          states={modeStates}
+                          processingModes={processingModes}
+                        />
+                      </div>
+                    </CollapsibleContent>
+                  </div>
+                </Collapsible>
               </CardContent>
             </Card>
 
