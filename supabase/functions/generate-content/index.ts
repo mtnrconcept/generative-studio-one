@@ -12,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const { prompt, category } = await req.json();
+    const { prompt, category, kenneyPacks } = await req.json();
     console.log(`Génération pour catégorie: ${category}, prompt: ${prompt}`);
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
@@ -85,28 +85,97 @@ Crée une application moderne et interactive. Pas de texte en dehors du code.`;
         break;
       
       case 'game':
-        systemPrompt = `Tu es un expert en développement de jeux HTML5. Génère un jeu complet et jouable.
+        let gameSystemPrompt = `Tu es un expert en développement de jeux HTML5. Génère un jeu complet et jouable.
         
 IMPORTANT: Réponds UNIQUEMENT avec du code HTML/CSS/JavaScript, sans markdown, sans explications.
+
+Le code DOIT être un fichier HTML autonome avec cette structure:
 
 <!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mon Jeu</title>
     <style>
-    /* CSS du jeu */
+    /* Tous les styles CSS du jeu ici */
     </style>
 </head>
 <body>
     <canvas id="gameCanvas"></canvas>
     <script>
-    // Logique du jeu ici
+    // Toute la logique du jeu ici
     </script>
 </body>
 </html>
 
-Crée un jeu fonctionnel et amusant. Pas d'explications, seulement du code.`;
+RÈGLES ESSENTIELLES:
+- Crée un jeu fonctionnel, jouable et amusant
+- Utilise un canvas HTML5 pour le rendu
+- Implémente des contrôles tactiles ET clavier
+- Le jeu doit être responsive et jouable sur mobile
+- Pas d'explications, seulement du code complet`;
+
+        // Si des packs Kenney sont sélectionnés, ajouter les instructions pour les utiliser
+        if (kenneyPacks && Array.isArray(kenneyPacks) && kenneyPacks.length > 0) {
+          gameSystemPrompt += `
+
+ASSET PACKS DISPONIBLES:
+L'utilisateur a sélectionné les packs d'assets Kenney suivants pour ce jeu:
+
+${kenneyPacks.map((pack: any) => `
+- ${pack.name} (${pack.category})
+  Description: ${pack.description}
+  Tags: ${pack.tags.join(', ')}
+  URL de téléchargement: ${pack.downloadUrl}
+`).join('\n')}
+
+INSTRUCTIONS POUR L'UTILISATION DES ASSETS:
+1. Inclure JSZip via CDN: <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+2. Télécharger et extraire les packs ZIP pertinents au chargement du jeu
+3. Utiliser les vrais sprites/images de ces packs dans le jeu (pas de formes géométriques simples)
+4. Afficher un écran de chargement pendant que les assets se téléchargent
+5. S'assurer que le jeu ne démarre que lorsque tous les assets sont prêts
+
+Exemple de structure pour charger les assets:
+<script>
+let assetsLoaded = false;
+const loadedImages = {};
+
+async function loadAssets() {
+  showLoadingScreen();
+  
+  // Télécharger et extraire chaque pack
+  for (const packUrl of ['${kenneyPacks[0]?.downloadUrl}']) {
+    const response = await fetch(packUrl);
+    const blob = await response.blob();
+    const zip = await JSZip.loadAsync(blob);
+    
+    // Extraire les images PNG du pack
+    for (const [filename, file] of Object.entries(zip.files)) {
+      if (filename.endsWith('.png')) {
+        const imageBlob = await file.async('blob');
+        const imageUrl = URL.createObjectURL(imageBlob);
+        const img = new Image();
+        img.src = imageUrl;
+        await new Promise(resolve => img.onload = resolve);
+        loadedImages[filename] = img;
+      }
+    }
+  }
+  
+  assetsLoaded = true;
+  hideLoadingScreen();
+  startGame();
+}
+
+loadAssets();
+</script>
+
+UTILISE CES ASSETS RÉELS dans ton jeu au lieu de dessiner des formes basiques!`;
+        }
+
+        systemPrompt = gameSystemPrompt;
         responseFormat = 'code';
         break;
       

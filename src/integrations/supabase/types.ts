@@ -14,7 +14,86 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      kenney_asset_packs: {
+        Row: {
+          category: string
+          created_at: string | null
+          description: string | null
+          download_url: string
+          file_size: string | null
+          id: string
+          is_downloaded: boolean | null
+          local_path: string | null
+          name: string
+          slug: string
+          tags: string[] | null
+          thumbnail_url: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          category: string
+          created_at?: string | null
+          description?: string | null
+          download_url: string
+          file_size?: string | null
+          id?: string
+          is_downloaded?: boolean | null
+          local_path?: string | null
+          name: string
+          slug: string
+          tags?: string[] | null
+          thumbnail_url?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          category?: string
+          created_at?: string | null
+          description?: string | null
+          download_url?: string
+          file_size?: string | null
+          id?: string
+          is_downloaded?: boolean | null
+          local_path?: string | null
+          name?: string
+          slug?: string
+          tags?: string[] | null
+          thumbnail_url?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      user_asset_packs: {
+        Row: {
+          downloaded_at: string | null
+          id: string
+          is_favorite: boolean | null
+          pack_id: string | null
+          user_id: string
+        }
+        Insert: {
+          downloaded_at?: string | null
+          id?: string
+          is_favorite?: boolean | null
+          pack_id?: string | null
+          user_id: string
+        }
+        Update: {
+          downloaded_at?: string | null
+          id?: string
+          is_favorite?: boolean | null
+          pack_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_asset_packs_pack_id_fkey"
+            columns: ["pack_id"]
+            isOneToOne: false
+            referencedRelation: "kenney_asset_packs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

@@ -10,6 +10,7 @@ import {
   Image as ImageIcon,
   ExternalLink,
   X,
+  Package,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -29,6 +30,8 @@ import {
   type GameSummary,
   type GeneratedAsset,
 } from "@/lib/gameGenerator";
+import { AssetManager } from "./AssetManager";
+import { type KenneyAssetPack, getRecommendedPacks } from "@/lib/kenneyAssetCatalog";
 
 type ChatMessage = {
   id: string;
@@ -162,6 +165,8 @@ const GameBuilder = ({ onBack }: GameBuilderProps) => {
   const [isGeneratingGame, setIsGeneratingGame] = useState(false);
   const [isProcessingInstruction, setIsProcessingInstruction] = useState(false);
   const [isRegenerating, setIsRegenerating] = useState(false);
+  const [assetManagerOpen, setAssetManagerOpen] = useState(false);
+  const [selectedKenneyPacks, setSelectedKenneyPacks] = useState<KenneyAssetPack[]>([]);
 
   const selectedAssetDetails = useMemo(
     () => assets.filter((asset) => selectedAssets.has(asset.id)),
@@ -224,6 +229,7 @@ const GameBuilder = ({ onBack }: GameBuilderProps) => {
       body: {
         prompt,
         category: "game",
+        kenneyPacks: selectedKenneyPacks.length > 0 ? selectedKenneyPacks : undefined,
       },
     });
 
@@ -289,6 +295,15 @@ const GameBuilder = ({ onBack }: GameBuilderProps) => {
       description: promptDescription.trim(),
       references: referenceImages,
     };
+
+    // Suggérer automatiquement des packs pertinents si aucun n'est sélectionné
+    if (selectedKenneyPacks.length === 0 && promptDescription.trim()) {
+      const recommended = getRecommendedPacks(promptDescription);
+      if (recommended.length > 0) {
+        setSelectedKenneyPacks(recommended.slice(0, 3)); // Limiter à 3 packs recommandés
+        toast.info(`${recommended.slice(0, 3).length} asset pack(s) recommandé(s) pour votre jeu`);
+      }
+    }
 
     setIsGeneratingGame(true);
 
@@ -531,6 +546,44 @@ const GameBuilder = ({ onBack }: GameBuilderProps) => {
                 ) : (
                   <p className="text-sm text-muted-foreground">
                     Aucune image ajoutée pour l'instant. Colle des liens d'artworks, captures ou moodboards pour guider la génération.
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-medium">Asset Packs Kenney</label>
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    size="sm"
+                    onClick={() => setAssetManagerOpen(true)}
+                    className="gap-2"
+                  >
+                    <Package className="h-4 w-4" />
+                    Parcourir les assets
+                  </Button>
+                </div>
+                {selectedKenneyPacks.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {selectedKenneyPacks.map((pack) => (
+                      <Badge key={pack.slug} variant="secondary" className="gap-1">
+                        {pack.name}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedKenneyPacks(prev => prev.filter(p => p.slug !== pack.slug));
+                          }}
+                          className="ml-1 hover:text-destructive"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </Badge>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Aucun asset pack sélectionné. Les assets locaux seront utilisés par défaut.
                   </p>
                 )}
               </div>
@@ -912,6 +965,15 @@ const GameBuilder = ({ onBack }: GameBuilderProps) => {
           </Card>
         </div>
       )}
+
+      <AssetManager 
+        open={assetManagerOpen}
+        onOpenChange={setAssetManagerOpen}
+        onAssetsSelected={(packs) => {
+          setSelectedKenneyPacks(packs);
+          toast.success(`${packs.length} pack(s) sélectionné(s)`);
+        }}
+      />
     </div>
   );
 };
