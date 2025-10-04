@@ -244,7 +244,7 @@ export function AssetManager({ open, onOpenChange, onAssetsSelected }: AssetMana
                           alt={pack.name}
                           className="w-full h-32 object-cover rounded-md mb-2"
                           onError={(e) => {
-                            e.currentTarget.src = "https://via.placeholder.com/300x200?text=Asset+Pack";
+                            e.currentTarget.src = "/placeholder.svg";
                           }}
                         />
                         <p className="text-xs text-muted-foreground line-clamp-2">

@@ -88,6 +88,8 @@ Crée une application moderne et interactive. Pas de texte en dehors du code.`;
         break;
       
       case 'game':
+        const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+        const proxyBase = supabaseUrl ? `${supabaseUrl}/functions/v1/proxy-asset?url=` : '';
         let gameSystemPrompt = `Tu es un expert en développement de jeux HTML5. Génère un jeu complet et jouable.
         
 IMPORTANT: Réponds UNIQUEMENT avec du code HTML/CSS/JavaScript, sans markdown, sans explications.
@@ -135,38 +137,39 @@ ${kenneyPacks.map((pack: any) => `
 
 INSTRUCTIONS POUR L'UTILISATION DES ASSETS:
 1. Inclure JSZip via CDN: <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-2. Télécharger et extraire les packs ZIP pertinents au chargement du jeu
-3. Utiliser les vrais sprites/images de ces packs dans le jeu (pas de formes géométriques simples)
-4. Afficher un écran de chargement pendant que les assets se téléchargent
-5. S'assurer que le jeu ne démarre que lorsque tous les assets sont prêts
+2. NE télécharge PAS directement depuis kenney.nl (CORS). Utilise le proxy sécurisé: ${proxyBase}
+3. Télécharge et extrais les packs ZIP pertinents au chargement du jeu
+4. Affiche un écran de chargement pendant que les assets se téléchargent
+5. Démarre le jeu uniquement quand tous les assets sont prêts
 
 Exemple de structure pour charger les assets:
 <script>
 let assetsLoaded = false;
-const loadedImages = {};
+const loadedImages: Record<string, HTMLImageElement> = {} as any;
 
 async function loadAssets() {
   showLoadingScreen();
-  
-  // Télécharger et extraire chaque pack
-  for (const packUrl of ['${kenneyPacks[0]?.downloadUrl}']) {
-    const response = await fetch(packUrl);
+  const PACK_URLS = ${JSON.stringify(kenneyPacks.map((p: any) => p.downloadUrl))};
+
+  for (const packUrl of PACK_URLS) {
+    const response = await fetch('${proxyBase}' + encodeURIComponent(packUrl));
+    if (!response.ok) throw new Error('Téléchargement échoué: ' + packUrl);
     const blob = await response.blob();
     const zip = await JSZip.loadAsync(blob);
-    
+
     // Extraire les images PNG du pack
     for (const [filename, file] of Object.entries(zip.files)) {
       if (filename.endsWith('.png')) {
-        const imageBlob = await file.async('blob');
+        const imageBlob = await (file as any).async('blob');
         const imageUrl = URL.createObjectURL(imageBlob);
         const img = new Image();
         img.src = imageUrl;
-        await new Promise(resolve => img.onload = resolve);
-        loadedImages[filename] = img;
+        await new Promise(resolve => (img.onload = resolve as any));
+        (loadedImages as any)[filename] = img;
       }
     }
   }
-  
+
   assetsLoaded = true;
   hideLoadingScreen();
   startGame();
@@ -176,6 +179,7 @@ loadAssets();
 </script>
 
 UTILISE CES ASSETS RÉELS dans ton jeu au lieu de dessiner des formes basiques!`;
+
         }
 
         systemPrompt = gameSystemPrompt;
