@@ -32,8 +32,6 @@ serve(async (req) => {
 
   try {
     const { prompt, category, kenneyPacks, mode, references } = await req.json();
-    const promptText = typeof prompt === 'string' ? prompt : '';
-    const normalizedPrompt = promptText.toLowerCase();
     const referenceCount = Array.isArray(references?.images) ? references.images.length : 0;
     console.log(
       `Génération pour catégorie: ${category}, mode: ${mode ?? 'default'}, références: ${referenceCount}, prompt: ${prompt}`,
@@ -159,11 +157,9 @@ RÈGLES INDISPENSABLES:
         responseFormat = 'code';
         break;
       
-      case 'game': {
+      case 'game':
         const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
         const proxyBase = supabaseUrl ? `${supabaseUrl}/functions/v1/proxy-asset?url=` : '';
-        const hasPawnBombMechanic =
-          (/(^|[^a-z])(pion|pawn)s?([^a-z]|$)/.test(normalizedPrompt)) && /(bomb|bombe)/.test(normalizedPrompt);
         let gameSystemPrompt = `Tu es un expert en développement de jeux vidéo HTML5/Canvas avec 10+ ans d'expérience en game design, physique 2D/3D, et optimisation de performance. Tu dois créer des jeux COMPLETS, JOUABLES et PROFESSIONNELS.
 
 ANALYSE DU BESOIN:
@@ -246,20 +242,6 @@ RÈGLES ESSENTIELLES:
 - Ajoute un système de sauvegarde des scores (localStorage)
 - NE génère PAS un prototype minimal, crée un JEU COMPLET`;
 
-        if (hasPawnBombMechanic) {
-          gameSystemPrompt += `
-
-RÈGLE PERSONNALISÉE : Pion pose des bombes
-- Le protagoniste principal est un pion (vue top-down ou isométrique) capable de se déplacer librement sur une grille.
-- Implémente une action de pose de bombes (touche Espace/clavier et bouton tactile dédié) avec retour visuel et sonore.
-- Chaque bombe reste active ~2 secondes avant d'exploser en croix (haut/bas/gauche/droite) avec une portée évolutive.
-- Les explosions détruisent les blocs fragiles, déclenchent des réactions en chaîne et éliminent les ennemis dans leur rayon.
-- Limite le nombre de bombes simultanées (ex: 3) et affiche un indicateur d'inventaire avec recharge progressive.
-- Prévois des bonus qui augmentent la portée, la vitesse du pion ou le stock de bombes, ainsi qu'un système de combo basé sur les éliminations.
-- Protège le pion d'une explosion fraîchement posée via une invulnérabilité courte pour éviter les auto-destructions injustes.
-- Ajoute des particules, un son d'amorçage, une alerte lumineuse avant l'explosion et une légère secousse d'écran pour renforcer l'impact.`;
-        }
-
         // Si des packs Kenney sont sélectionnés, ajouter les instructions pour les utiliser
         if (kenneyPacks && Array.isArray(kenneyPacks) && kenneyPacks.length > 0) {
           gameSystemPrompt += `
@@ -324,7 +306,6 @@ UTILISE CES ASSETS RÉELS dans ton jeu au lieu de dessiner des formes basiques!`
         systemPrompt = gameSystemPrompt;
         responseFormat = 'code';
         break;
-      }
       
       case 'music':
         systemPrompt = `Tu es un expert en composition musicale. Décris précisément comment créer la musique demandée:

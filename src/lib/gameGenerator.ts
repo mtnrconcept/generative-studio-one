@@ -587,8 +587,7 @@ const buildGameCode = (config: {
 
       objectiveList.innerHTML = CONFIG.objectives
         .map((objective, index) => {
-          const segments = objective.split(':');
-          const label = (segments.length > 1 ? segments.slice(1).join(':') : objective).trim();
+          const label = objective.replace(/^[^:]+:\s*/, '').trim();
           return '<span><strong>' + String(index + 1).padStart(2, '0') + '</strong>' + label + '</span>';
         })
         .join('');
@@ -1001,19 +1000,8 @@ export const generateGameBlueprint = (
   const trimmedTitle = sanitizeSentence(brief.title);
   const trimmedTheme = sanitizeSentence(brief.theme);
   const trimmedDescription = sanitizeSentence(brief.description);
-  const haystack = `${trimmedTitle} ${trimmedTheme} ${trimmedDescription}`.toLowerCase();
-  const hasPawnBombMechanic =
-    (/(^|[^a-z])(pion|pawn)s?([^a-z]|$)/.test(haystack)) && /(bomb|bombe)/.test(haystack);
 
   const keywords = extractKeywords(trimmedDescription || trimmedTheme || trimmedTitle);
-  if (hasPawnBombMechanic) {
-    const bombKeywords = ["bombes", "explosion", "detonateurs"];
-    for (const keyword of bombKeywords) {
-      if (!keywords.includes(keyword)) {
-        keywords.push(keyword);
-      }
-    }
-  }
 
   const defaultTitle = keywords.length > 0 ? toTitleCase(keywords.slice(0, 2).join(" ")) : "Prototype IA";
   const title = trimmedTitle || defaultTitle;
@@ -1029,66 +1017,18 @@ export const generateGameBlueprint = (
   const enemyLabels = extractFeatureLabels(trimmedDescription, enemyPattern, keywords.slice(0, 3).map(toTitleCase));
   const companionLabels = extractFeatureLabels(trimmedDescription, friendPattern, keywords.slice(3, 6).map(toTitleCase));
 
-  let objectives = buildObjectives(trimmedDescription, [
+  const objectives = buildObjectives(trimmedDescription, [
     "Boucle principale : Explorer l'espace de jeu généré",
     "Progression : Intégrer vos directives pour enrichir le gameplay",
     "Ambiance : Expérience immersive rendue en WebGL",
   ]);
 
-  if (hasPawnBombMechanic) {
-    const bombObjective =
-      "Boucle offensive : Poser des bombes tactiques avec le pion et contrôler leurs réactions en chaîne";
-    objectives = [bombObjective, ...objectives].slice(0, 3);
-  }
+  const collectibles = buildCollectibles(objectives, keywords.length > 0 ? keywords : ["artefacts", "fragments", "souvenirs"]);
 
-  let collectibles = buildCollectibles(
-    objectives,
-    keywords.length > 0 ? keywords : ["artefacts", "fragments", "souvenirs"],
-  );
-
-  if (hasPawnBombMechanic) {
-    const bombCollectibles = ["Détonateurs calibrés", "Charges amplificatrices"];
-    for (let index = bombCollectibles.length - 1; index >= 0; index--) {
-      const collectible = bombCollectibles[index];
-      if (!collectibles.some((item) => item.toLowerCase().includes(collectible.toLowerCase()))) {
-        collectibles.unshift(collectible);
-      }
-    }
-
-    const seen = new Set<string>();
-    const uniqueCollectibles: string[] = [];
-    for (const collectible of collectibles) {
-      const key = collectible.toLowerCase();
-      if (seen.has(key)) continue;
-      seen.add(key);
-      uniqueCollectibles.push(collectible);
-      if (uniqueCollectibles.length >= 6) break;
-    }
-    collectibles = uniqueCollectibles;
-  }
-
-  let assets = buildAssets(keywords, enemyLabels, companionLabels, objectives);
-  if (hasPawnBombMechanic) {
-    const bombSources = getAssetSources(
-      "Bombes tactiques",
-      "Objet interactif",
-      ["bombes", "explosion", "detonateur"],
-    );
-    assets = [
-      {
-        id: nanoid(),
-        name: "Module Bombardier du pion",
-        category: "Objet interactif",
-        description:
-          "Gestion du placement, du compte à rebours et des effets visuels/sonores des bombes déposées par le pion.",
-        sources: bombSources,
-      },
-      ...assets,
-    ];
-  }
+  const assets = buildAssets(keywords, enemyLabels, companionLabels, objectives);
   const assetBankHighlights = summarizeAssetBanks(assets);
   const selectedAssetIds = assets.slice(0, 3).map((asset) => asset.id);
-  let updates = buildUpdates(
+  const updates = buildUpdates(
     theme,
     environment,
     enemyLabels,
@@ -1098,19 +1038,8 @@ export const generateGameBlueprint = (
     assetBankHighlights
   );
 
-  if (hasPawnBombMechanic) {
-    updates = [
-      "Mécanique signature : le pion déploie des bombes temporisées capables de déclencher des réactions en chaîne.",
-      ...updates,
-    ];
-  }
-
-  const descriptionFallback =
-    trimmedDescription ||
+  const descriptionFallback = trimmedDescription ||
     "Prototype généré automatiquement à partir de votre brief pour démonstration immédiate.";
-  const elevatorPitch = hasPawnBombMechanic
-    ? `${descriptionFallback} Le pion dispose d'un arsenal de bombes à retardement pour contrôler l'espace de jeu.`
-    : descriptionFallback;
 
   const code = buildGameCode({
     title,
@@ -1120,7 +1049,7 @@ export const generateGameBlueprint = (
     enemies: enemyLabels,
     collectibles,
     palette,
-    description: elevatorPitch,
+    description: descriptionFallback,
     keywords: keywords.length > 0 ? keywords : ["création", "monde", "action"],
   });
 
@@ -1130,13 +1059,7 @@ export const generateGameBlueprint = (
 
   const assetSourceSummary = assetBankHighlights.slice(0, 2).join(" & ");
 
-  const mechanicsNote = hasPawnBombMechanic
-    ? "Mécanique spéciale : le pion orchestre un arsenal de bombes à retardement avec réactions en chaîne."
-    : "";
-
-  const assistantMessage = `${directive}. ${title} vous plonge dans ${environment.toLowerCase()}. ${
-    mechanicsNote ? `${mechanicsNote} ` : ""
-  }Objectifs clés : ${objectives
+  const assistantMessage = `${directive}. ${title} vous plonge dans ${environment.toLowerCase()}. Objectifs clés : ${objectives
     .map((objective) => objective.replace(/^[^:]+:\s*/, ""))
     .join(" / ")}. Palette utilisée : ${palette.join(
     " → "
@@ -1150,7 +1073,7 @@ export const generateGameBlueprint = (
     summary: {
       title,
       theme,
-      elevatorPitch,
+      elevatorPitch: descriptionFallback,
       objectives,
       environment,
     },
