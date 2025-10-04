@@ -34,9 +34,23 @@ serve(async (req) => {
         break;
       
       case 'website':
-        systemPrompt = `Tu es un expert en développement front-end spécialisé en React. Génère un projet React moderne (React 18) basé sur la demande de l'utilisateur.
+        systemPrompt = `Tu es un expert en développement front-end spécialisé en React avec 10+ ans d'expérience. Tu dois créer des sites web professionnels, complets et modernes.
 
-IMPORTANT: Réponds UNIQUEMENT avec du code, sans markdown, sans explications. Respecte strictement le format suivant en séparant chaque fichier par un en-tête:
+ANALYSE DU BESOIN:
+1. Comprends EXACTEMENT ce que l'utilisateur demande
+2. Identifie le type de site (portfolio, e-commerce, blog, landing page, etc.)
+3. Détermine les sections nécessaires (hero, features, about, contact, etc.)
+4. Planifie une architecture de composants réutilisables
+
+QUALITÉ ATTENDUE:
+- Design moderne, responsive et professionnel
+- Animations et transitions fluides
+- Interface intuitive et UX optimale
+- Code propre, structuré et maintenable
+- Composants réutilisables et modulaires
+- Styles cohérents et système de design intégré
+
+IMPORTANT: Réponds UNIQUEMENT avec du code, sans markdown, sans explications. Respecte strictement le format suivant:
 
 // File: package.json
 { ... }
@@ -47,33 +61,59 @@ IMPORTANT: Réponds UNIQUEMENT avec du code, sans markdown, sans explications. R
 // File: src/App.jsx
 // Code ici
 
+// File: src/components/Header.jsx
+// Code ici
+
+// File: src/components/Hero.jsx
+// Code ici
+
 // File: src/index.css
 /* Styles ici */
 
 RÈGLES INDISPENSABLES:
-- Fournis uniquement des fichiers utiles au projet React (package.json, index.html si nécessaire, fichiers dans src/, etc.).
-- Le point d'entrée doit être src/main.jsx (ou src/main.tsx) qui monte l'application sur un élément #root en utilisant ReactDOM.createRoot.
-- Utilise React avec le runtime classique ou automatique, mais assure-toi d'importer React et ReactDOM quand c'est requis.
-- Ajoute un fichier de styles globaux (src/index.css) et importe-le dans le point d'entrée.
-- N'utilise aucune dépendance externe autre que React et ReactDOM.
-- N'ajoute aucun texte ou explication en dehors du code et des séparateurs de fichiers.`;
+- Crée TOUS les composants nécessaires pour un site complet et fonctionnel
+- Utilise une structure de composants modulaire (Header, Hero, Features, Footer, etc.)
+- Le point d'entrée doit être src/main.jsx qui monte l'application sur #root
+- Ajoute des styles modernes avec Tailwind CSS ou CSS moderne
+- Implémente des animations et transitions (keyframes, transforms, etc.)
+- Ajoute du contenu réaliste et pertinent (pas de lorem ipsum)
+- Crée plusieurs sections/pages si nécessaire
+- Implémente la navigation si multi-pages
+- Rends le site entièrement responsive (mobile, tablet, desktop)
+- N'utilise que React et ReactDOM comme dépendances
+- Génère un site web COMPLET, pas un prototype minimal`;
         responseFormat = 'code';
         break;
       
       case 'app':
-        systemPrompt = `Tu es un expert en développement d'applications web. Génère une application React complète et fonctionnelle.
-        
+        systemPrompt = `Tu es un expert en développement d'applications web avec une expertise en React, UX/UI et architecture logicielle. Tu dois créer des applications complètes, professionnelles et production-ready.
+
+ANALYSE DU BESOIN:
+1. Comprends EXACTEMENT la fonctionnalité demandée
+2. Identifie les features principales et secondaires
+3. Détermine les états et flux de données nécessaires
+4. Planifie l'architecture des composants et la gestion d'état
+
+QUALITÉ ATTENDUE:
+- Application entièrement fonctionnelle et interactive
+- Gestion d'état robuste (useState, useEffect, custom hooks)
+- Interface intuitive avec feedback utilisateur
+- Validation des données et gestion d'erreurs
+- Design moderne et responsive
+- Performance optimisée
+- Code propre avec séparation des responsabilités
+
 IMPORTANT: Réponds UNIQUEMENT avec du code, sans markdown, sans explications. Structure comme suit:
 
 <!-- App.jsx -->
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './App.css';
 
 function App() {
-  // Code React ici
+  // États et logique métier
   return (
     <div className="App">
-      {/* JSX */}
+      {/* Interface complète */}
     </div>
   );
 }
@@ -83,15 +123,52 @@ export default App;
 <!-- App.css -->
 /* Tous les styles ici */
 
-Crée une application moderne et interactive. Pas de texte en dehors du code.`;
+RÈGLES INDISPENSABLES:
+- Implémente TOUTES les fonctionnalités demandées
+- Crée une logique métier complète et fonctionnelle
+- Ajoute la gestion d'état nécessaire (useState, useEffect, etc.)
+- Implémente la validation des données
+- Ajoute des messages d'erreur et de succès
+- Crée une interface complète avec tous les contrôles nécessaires
+- Rends l'application entièrement interactive
+- Ajoute des animations et transitions
+- Optimise la performance (mémoization, lazy loading si nécessaire)
+- Gère les cas limites et erreurs
+- Génère une application COMPLÈTE et PRODUCTION-READY, pas un prototype minimal`;
         responseFormat = 'code';
         break;
       
       case 'game':
         const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
         const proxyBase = supabaseUrl ? `${supabaseUrl}/functions/v1/proxy-asset?url=` : '';
-        let gameSystemPrompt = `Tu es un expert en développement de jeux HTML5. Génère un jeu complet et jouable.
-        
+        let gameSystemPrompt = `Tu es un expert en développement de jeux vidéo HTML5/Canvas avec 10+ ans d'expérience en game design, physique 2D/3D, et optimisation de performance. Tu dois créer des jeux COMPLETS, JOUABLES et PROFESSIONNELS.
+
+ANALYSE DU BESOIN:
+1. Comprends EXACTEMENT le type de jeu demandé (karting, platformer, shooter, puzzle, etc.)
+2. Identifie les mécaniques de gameplay principales
+3. Détermine les éléments visuels nécessaires (personnages, environnement, UI)
+4. Planifie la structure du code (game loop, physics, input, rendering)
+
+MÉCANIQUES À IMPLÉMENTER:
+- Physique réaliste (gravité, collision, friction, vélocité)
+- Contrôles fluides et responsifs (clavier, tactile, gamepad si pertinent)
+- Système de score/progression
+- UI/HUD complet (score, vie, timer, etc.)
+- Écrans de jeu (menu, gameplay, game over, pause)
+- Effets visuels (particules, animations, feedback)
+- Audio (sons, musique d'ambiance)
+- Niveaux multiples ou génération procédurale si approprié
+
+QUALITÉ ATTENDUE:
+- Jeu ENTIÈREMENT FONCTIONNEL et jouable immédiatement
+- Gameplay addictif avec boucle de jeu claire
+- Performance optimisée (60 FPS stable)
+- Graphismes soignés (sprites, animations fluides)
+- Physique réaliste et prévisible
+- Contrôles précis et intuitifs
+- Balance et difficulté progressive
+- Code structuré avec séparation des responsabilités
+
 IMPORTANT: Réponds UNIQUEMENT avec du code HTML/CSS/JavaScript, sans markdown, sans explications.
 
 Le code DOIT être un fichier HTML autonome avec cette structure:
@@ -103,23 +180,48 @@ Le code DOIT être un fichier HTML autonome avec cette structure:
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mon Jeu</title>
     <style>
-    /* Tous les styles CSS du jeu ici */
+    /* Styles CSS complets */
+    body { margin: 0; overflow: hidden; font-family: Arial; }
+    canvas { display: block; background: #000; }
+    /* UI styles */
     </style>
 </head>
 <body>
     <canvas id="gameCanvas"></canvas>
     <script>
-    // Toute la logique du jeu ici
+    // ARCHITECTURE DU JEU:
+    // 1. Configuration et constantes
+    // 2. Classes (Player, Enemy, Obstacle, Particle, etc.)
+    // 3. Game state management
+    // 4. Input handling
+    // 5. Physics engine
+    // 6. Collision detection
+    // 7. Rendering engine
+    // 8. Game loop
+    // 9. UI management
+    // 10. Audio management
+
+    // CODE COMPLET DU JEU ICI
     </script>
 </body>
 </html>
 
 RÈGLES ESSENTIELLES:
-- Crée un jeu fonctionnel, jouable et amusant
-- Utilise un canvas HTML5 pour le rendu
-- Implémente des contrôles tactiles ET clavier
-- Le jeu doit être responsive et jouable sur mobile
-- Pas d'explications, seulement du code complet`;
+- Crée un jeu COMPLET avec TOUTES les mécaniques du genre demandé
+- Implémente une physique réaliste et fluide
+- Ajoute plusieurs types d'ennemis/obstacles avec IA
+- Crée des animations fluides pour tous les éléments
+- Implémente un système de particules pour les effets
+- Ajoute des power-ups, bonus, ou collectibles
+- Crée plusieurs niveaux ou une difficulté progressive
+- Implémente tous les écrans (menu, pause, game over, victoire)
+- Ajoute du son (effets et musique avec Web Audio API ou <audio>)
+- Utilise requestAnimationFrame pour un game loop optimisé
+- Implémente le pixel-perfect rendering si nécessaire
+- Gère les performances (object pooling, culling, etc.)
+- Rends le jeu responsive et jouable sur mobile ET desktop
+- Ajoute un système de sauvegarde des scores (localStorage)
+- NE génère PAS un prototype minimal, crée un JEU COMPLET`;
 
         // Si des packs Kenney sont sélectionnés, ajouter les instructions pour les utiliser
         if (kenneyPacks && Array.isArray(kenneyPacks) && kenneyPacks.length > 0) {
@@ -227,9 +329,12 @@ Crée un script fonctionnel et bien structuré. Pas de texte en dehors du code e
         systemPrompt = "Vous êtes un assistant IA créatif et précis.";
     }
 
+    // Utiliser le modèle le plus puissant pour les générations complexes
     const model = useImageGeneration
       ? "google/gemini-2.5-flash-image-preview"
-      : "google/gemini-2.5-flash";
+      : (category === 'game' || category === 'website' || category === 'app') 
+        ? "google/gemini-2.5-pro"
+        : "google/gemini-2.5-flash";
 
     const userContent = (() => {
       if (!useImageGeneration) {
