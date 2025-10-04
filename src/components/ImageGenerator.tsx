@@ -131,7 +131,7 @@ const ImageGenerator = ({ onBack }: ImageGeneratorProps) => {
   const [currentSession, setCurrentSession] = useState<ImageGenerationSession | null>(null);
   const [history, setHistory] = useState<ImageGenerationSession[]>([]);
   const [selectedMode, setSelectedMode] = useState<ImageModeId>("image-to-image");
-  const [confirmedMode, setConfirmedMode] = useState<ImageModeId>("image-to-image");
+  const [confirmedMode, setConfirmedMode] = useState<ImageModeId | null>(null);
   const [modeStates, setModeStates] = useState<Record<ImageModeId, ModeState>>(() => ({ ...initialModeStates }));
   const [processingModes, setProcessingModes] = useState<Partial<Record<ImageModeId, boolean>>>({});
   const [isGuidanceOpen, setIsGuidanceOpen] = useState(false);
@@ -270,6 +270,22 @@ const ImageGenerator = ({ onBack }: ImageGeneratorProps) => {
         };
       });
 
+      setSelectedMode(modeId);
+
+      if (uploads.length > 0) {
+        let shouldAnnounceActivation = false;
+        setConfirmedMode((current) => {
+          if (current !== modeId) {
+            shouldAnnounceActivation = true;
+          }
+          return modeId;
+        });
+
+        if (shouldAnnounceActivation && definition) {
+          toast.success(`${definition.title} activé`);
+        }
+      }
+
       if (definition?.analysisType) {
         const referenceImage = uploads[uploads.length - 1];
         const analysis = referenceImage ? await simulateAnalysis(modeId, referenceImage) : null;
@@ -292,6 +308,8 @@ const ImageGenerator = ({ onBack }: ImageGeneratorProps) => {
   };
 
   const handleRemoveModeImage = (modeId: ImageModeId, imageId: string) => {
+    let shouldClearConfirmation = false;
+
     setModeStates((previous) => {
       const current = previous[modeId];
       if (!current) {
@@ -307,6 +325,10 @@ const ImageGenerator = ({ onBack }: ImageGeneratorProps) => {
       const remaining = current.sources.filter((item) => item.id !== imageId);
       const definition = getModeDefinition(modeId);
 
+      if (remaining.length === 0 && confirmedMode === modeId) {
+        shouldClearConfirmation = true;
+      }
+
       return {
         ...previous,
         [modeId]: {
@@ -316,6 +338,10 @@ const ImageGenerator = ({ onBack }: ImageGeneratorProps) => {
         },
       };
     });
+
+    if (shouldClearConfirmation) {
+      setConfirmedMode((current) => (current === modeId ? null : current));
+    }
   };
 
   const handleConfirmMode = () => {
@@ -357,6 +383,9 @@ const ImageGenerator = ({ onBack }: ImageGeneratorProps) => {
 
     if (activeModeDefinition) {
       instructions.push(`Module d'image utilisé : ${activeModeDefinition.title}`);
+      if (activeModeDefinition.promptGuidance) {
+        instructions.push(activeModeDefinition.promptGuidance);
+      }
     }
 
     if (activeModeState?.sources.length) {

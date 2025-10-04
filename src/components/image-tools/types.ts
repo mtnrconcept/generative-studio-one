@@ -44,4 +44,5 @@ export interface ImageModeDefinition {
   analysisType?: AnalysisType;
   badgeLabel?: string;
   sampleResultDescription: string;
+  promptGuidance?: string;
 }
